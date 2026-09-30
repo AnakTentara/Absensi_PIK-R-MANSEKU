@@ -118,11 +118,57 @@ function setupEventListeners() {
   });
   document.getElementById("btnTestPingGAS").addEventListener("click", testPingGAS);
 
+  // Native Camera & Gallery file handlers (100% Mobile & Sandboxed proof)
+  const camInput = document.getElementById("qrCameraFileInput");
+  const galInput = document.getElementById("qrGalleryFileInput");
+  const btnNative = document.getElementById("btnNativeCamera");
+  const btnGal = document.getElementById("btnGalleryFile");
+
+  if (btnNative && camInput) {
+    btnNative.addEventListener("click", () => camInput.click());
+  }
+  if (btnGal && galInput) {
+    btnGal.addEventListener("click", () => galInput.click());
+  }
+
+  const handleFileScan = async (file) => {
+    if (!file) return;
+    showToast("Menganalisis foto QR...", "info");
+    try {
+      if (!html5QrCode) {
+        html5QrCode = new Html5Qrcode("reader");
+      }
+      const decodedText = await html5QrCode.scanFile(file, true);
+      if (decodedText) {
+        onScanSuccess(decodedText, null);
+      } else {
+        throw new Error("QR tidak terdeteksi");
+      }
+    } catch (e) {
+      console.error("Scan file error:", e);
+      if (audioEngine) audioEngine.buzzError();
+      showToast("Foto QR tidak terbaca. Pastikan foto cukup terang & fokus!", "error");
+    }
+  };
+
+  if (camInput) camInput.addEventListener("change", (e) => { handleFileScan(e.target.files[0]); e.target.value = ""; });
+  if (galInput) galInput.addEventListener("change", (e) => { handleFileScan(e.target.files[0]); e.target.value = ""; });
+
+  // Mobile Friendly: Klik latar belakang modal untuk menutup
+  [modalManual, modalPermit, modalGas].forEach(m => {
+    if (m) {
+      m.addEventListener("click", (e) => {
+        if (e.target === m) m.style.display = "none";
+      });
+    }
+  });
+
   // Search log filter
   document.getElementById("searchLog").addEventListener("input", (e) => {
     filterRecentLogs(e.target.value);
   });
 }
+
 
 /**
  * Memulai Scanner Kamera
@@ -139,36 +185,39 @@ async function startCameraScanner() {
 
     html5QrCode = new Html5Qrcode("reader");
 
-    availableCameras = await Html5Qrcode.getCameras();
-    if (!availableCameras || availableCameras.length === 0) {
-      showToast("Tidak ditemukan kamera pada perangkat ini.", "error");
-      window.statusBadge.textContent = "Kamera Tidak Ditemukan";
-      window.statusBadge.className = "badge badge-danger";
-      return;
-    }
-
-    // Prioritaskan kamera belakang (environment)
-    let selectedCamera = availableCameras[0].id;
-    for (let cam of availableCameras) {
-      if (cam.label.toLowerCase().includes("back") || cam.label.toLowerCase().includes("belakang") || cam.label.toLowerCase().includes("environment")) {
-        selectedCamera = cam.id;
-        break;
-      }
-    }
-    currentCameraId = selectedCamera;
-
+    const qrBoxSize = Math.min(window.innerWidth - 60, 240);
     const qrConfig = {
       fps: 15,
-      qrbox: { width: 230, height: 230 },
+      qrbox: { width: qrBoxSize, height: qrBoxSize },
       aspectRatio: 1.0
     };
 
-    await html5QrCode.start(
-      currentCameraId,
-      qrConfig,
-      onScanSuccess,
-      onScanFailure
-    );
+    // Coba langsung buka kamera belakang via facingMode (Sangat mulus di Android & iOS)
+    try {
+      await html5QrCode.start(
+        { facingMode: "environment" },
+        qrConfig,
+        onScanSuccess,
+        onScanFailure
+      );
+    } catch (modeErr) {
+      // Fallback enumerate camera jika facingMode khusus tidak didukung
+      availableCameras = await Html5Qrcode.getCameras();
+      if (!availableCameras || availableCameras.length === 0) {
+        throw new Error("Tidak ditemukan kamera pada perangkat ini.");
+      }
+
+      let selectedCamera = availableCameras[0].id;
+      for (let cam of availableCameras) {
+        if (cam.label.toLowerCase().includes("back") || cam.label.toLowerCase().includes("belakang") || cam.label.toLowerCase().includes("environment")) {
+          selectedCamera = cam.id;
+          break;
+        }
+      }
+      currentCameraId = selectedCamera;
+      await html5QrCode.start(currentCameraId, qrConfig, onScanSuccess, onScanFailure);
+    }
+
 
     isScanning = true;
     window.btnStart.style.display = "none";

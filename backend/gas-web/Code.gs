@@ -268,21 +268,32 @@ function handleGetAttendance(tanggal) {
   for (let i = data.length - 1; i >= 1; i--) {
     let rowDate = data[i][2];
     if (rowDate instanceof Date) rowDate = Utilities.formatDate(rowDate, CONFIG.TIMEZONE, "yyyy-MM-dd");
+    else if (rowDate) rowDate = String(rowDate);
     if (tanggal && rowDate !== tanggal) continue;
+
+    let rowTs = data[i][1];
+    let tsStr = rowTs instanceof Date ? Utilities.formatDate(rowTs, CONFIG.TIMEZONE, "yyyy-MM-dd HH:mm:ss") : String(rowTs || "");
+
+    let jamMasuk = data[i][3];
+    let jamMasukStr = jamMasuk instanceof Date ? Utilities.formatDate(jamMasuk, CONFIG.TIMEZONE, "HH:mm:ss") : String(jamMasuk || "-");
+
+    let jamPulang = data[i][4];
+    let jamPulangStr = jamPulang instanceof Date ? Utilities.formatDate(jamPulang, CONFIG.TIMEZONE, "HH:mm:ss") : String(jamPulang || "-");
+
     records.push({
-      logId: data[i][0],
-      timestamp: data[i][1],
-      tanggal: rowDate,
-      jamMasuk: data[i][3] || "-",
-      jamPulang: data[i][4] || "-",
-      idAnggota: data[i][5],
-      nama: data[i][6],
-      kelas: data[i][7],
-      status: data[i][8],
-      sesi: data[i][9],
-      petugas: data[i][10],
-      catatan: data[i][11] || "-",
-      poin: data[i][12] || 0
+      logId: String(data[i][0] || ""),
+      timestamp: tsStr,
+      tanggal: String(rowDate || ""),
+      jamMasuk: jamMasukStr,
+      jamPulang: jamPulangStr,
+      idAnggota: String(data[i][5] || ""),
+      nama: String(data[i][6] || ""),
+      kelas: String(data[i][7] || ""),
+      status: String(data[i][8] || ""),
+      sesi: String(data[i][9] || ""),
+      petugas: String(data[i][10] || ""),
+      catatan: String(data[i][11] || "-"),
+      poin: Number(data[i][12]) || 0
     });
   }
   return { status: "success", count: records.length, records: records };
@@ -315,8 +326,8 @@ function handleRecordAttendance(payload) {
   const membersData = sheetMembers.getDataRange().getValues();
   for (let i = 1; i < membersData.length; i++) {
     if (String(membersData[i][0]).toUpperCase() === String(id).toUpperCase()) {
-      nama = membersData[i][1];
-      kelas = membersData[i][2];
+      nama = String(membersData[i][1] || nama);
+      kelas = String(membersData[i][2] || kelas);
       break;
     }
   }
@@ -324,8 +335,8 @@ function handleRecordAttendance(payload) {
   const now = new Date();
   const dateStr = Utilities.formatDate(now, CONFIG.TIMEZONE, "yyyy-MM-dd");
   const timeStr = Utilities.formatDate(now, CONFIG.TIMEZONE, "HH:mm:ss");
-  const agenda = payload.sesi || "Pertemuan Mingguan";
-  const petugas = payload.petugas || "Kakak Senior";
+  const agenda = String(payload.sesi || "Pertemuan Mingguan");
+  const petugas = String(payload.petugas || "Kakak Senior");
 
   const attendData = sheetAttendance.getDataRange().getValues();
   let existingRowIndex = -1;
@@ -346,23 +357,25 @@ function handleRecordAttendance(payload) {
     const logId = "LOG-" + Utilities.formatDate(now, CONFIG.TIMEZONE, "yyyyMMdd-HHmmss") + "-" + String(id).replace(/[^A-Za-z0-9]/g, "");
     sheetAttendance.appendRow([
       logId, now, dateStr, timeStr, "-", id, nama, kelas,
-      "Hadir (Masuk)", agenda, petugas, payload.catatan || "-", 10
+      "Hadir (Masuk)", agenda, petugas, String(payload.catatan || "-"), 10
     ]);
 
     return {
       status: "success",
       scanType: "MASUK",
       message: "Absen MASUK berhasil dicatat! (+10 Poin Keaktifan)",
-      data: { id, nama, kelas, tanggal: dateStr, jamMasuk: timeStr, jamPulang: "-", status: "Hadir (Masuk)", poin: 10, sesi: agenda }
+      data: { id: String(id), nama: String(nama), kelas: String(kelas), tanggal: dateStr, jamMasuk: timeStr, jamPulang: "-", status: "Hadir (Masuk)", poin: 10, sesi: agenda }
     };
   }
 
   // JIKA SUDAH ABSEN MASUK ➡️ OTOMATIS CATAT SEBAGAI ABSEN PULANG
   const existingRow = attendData[existingRowIndex - 1];
-  const jamMasuk = existingRow[3];
-  const jamPulang = existingRow[4];
+  const jamMasukRaw = existingRow[3];
+  const jamMasukStr = jamMasukRaw instanceof Date ? Utilities.formatDate(jamMasukRaw, CONFIG.TIMEZONE, "HH:mm:ss") : String(jamMasukRaw || "-");
+  const jamPulangRaw = existingRow[4];
+  const jamPulangStr = jamPulangRaw instanceof Date ? Utilities.formatDate(jamPulangRaw, CONFIG.TIMEZONE, "HH:mm:ss") : String(jamPulangRaw || "-");
 
-  if (!jamPulang || jamPulang === "-" || jamPulang === "") {
+  if (!jamPulangRaw || jamPulangStr === "-" || jamPulangStr === "") {
     sheetAttendance.getRange(existingRowIndex, 5).setValue(timeStr); // Update Jam Pulang
     sheetAttendance.getRange(existingRowIndex, 9).setValue("Hadir Lengkap"); // Update Status
     sheetAttendance.getRange(existingRowIndex, 13).setValue(15); // Update Total Poin (10 + 5)
@@ -371,15 +384,15 @@ function handleRecordAttendance(payload) {
       status: "success",
       scanType: "PULANG",
       message: "Absen PULANG berhasil dicatat! Kehadiran lengkap (+5 Poin Bonus)",
-      data: { id, nama, kelas, tanggal: dateStr, jamMasuk: jamMasuk, jamPulang: timeStr, status: "Hadir Lengkap", poin: 15, sesi: agenda }
+      data: { id: String(id), nama: String(nama), kelas: String(kelas), tanggal: dateStr, jamMasuk: jamMasukStr, jamPulang: timeStr, status: "Hadir Lengkap", poin: 15, sesi: agenda }
     };
   }
 
   // JIKA SUDAH ABSEN MASUK & PULANG KEDUANYA
   return {
     status: "already_completed",
-    message: "Kehadiran anggota ini sudah LENGKAP hari ini!\n• Masuk: " + jamMasuk + "\n• Pulang: " + jamPulang,
-    data: { id, nama, kelas, tanggal: dateStr, jamMasuk: jamMasuk, jamPulang: jamPulang, status: "Hadir Lengkap" }
+    message: "Kehadiran anggota ini sudah LENGKAP hari ini!\n• Masuk: " + jamMasukStr + "\n• Pulang: " + jamPulangStr,
+    data: { id: String(id), nama: String(nama), kelas: String(kelas), tanggal: dateStr, jamMasuk: jamMasukStr, jamPulang: jamPulangStr, status: "Hadir Lengkap" }
   };
 }
 

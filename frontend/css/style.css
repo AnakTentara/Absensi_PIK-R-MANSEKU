@@ -649,11 +649,200 @@ tbody tr:hover {
   body.printing-berita-acara #sectionRecords,
   body.printing-berita-acara #sectionLeaderboard,
   body.printing-berita-acara .app-header,
-  body.printing-berita-acara .toast-container {
+  body.printing-berita-acara .toast-container,
+  body.printing-berita-acara .mobile-bottom-nav {
     display: none !important;
   }
   body.printing-berita-acara #beritaAcaraPrintArea {
     display: block !important;
   }
 }
+
+/* =================================================== */
+/* ULTRA MOBILE-FRIENDLY & TOUCH OPTIMIZATIONS (<= 768px) */
+/* =================================================== */
+@media (max-width: 768px) {
+  :root {
+    --safe-bottom: env(safe-area-inset-bottom, 0px);
+  }
+
+  body {
+    padding-bottom: calc(68px + var(--safe-bottom));
+  }
+
+  .nav-container {
+    padding: 0.65rem 1rem;
+  }
+
+  .nav-links {
+    display: none !important; /* Replaced by mobile bottom dock */
+  }
+
+  /* Bottom Navigation Dock */
+  .mobile-bottom-nav {
+    display: flex !important;
+    position: fixed;
+    bottom: 0;
+    left: 0;
+    right: 0;
+    background: rgba(255, 255, 255, 0.96);
+    backdrop-filter: blur(16px);
+    -webkit-backdrop-filter: blur(16px);
+    border-top: 1px solid var(--border);
+    padding: 0.35rem 0.5rem calc(0.35rem + var(--safe-bottom));
+    z-index: 999;
+    box-shadow: 0 -4px 18px rgba(0, 0, 0, 0.08);
+    justify-content: space-around;
+    align-items: center;
+  }
+
+  .mob-nav-item {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    padding: 0.4rem 0.2rem;
+    text-decoration: none;
+    color: var(--text-muted);
+    font-size: 0.72rem;
+    font-weight: 600;
+    border-radius: var(--radius-sm);
+    transition: all 0.15s ease;
+    touch-action: manipulation;
+  }
+
+  .mob-nav-item .icon {
+    font-size: 1.3rem;
+    margin-bottom: 0.15rem;
+  }
+
+  .mob-nav-item.active {
+    color: var(--primary);
+    font-weight: 800;
+    background: var(--primary-light);
+  }
+
+  .main-content {
+    padding: 0.85rem 0.75rem 2rem;
+  }
+
+  .card {
+    padding: 1rem;
+    border-radius: var(--radius-md);
+    margin-bottom: 1rem;
+  }
+
+  .card-header {
+    margin-bottom: 1rem;
+  }
+
+  .scanner-viewport-wrapper {
+    min-height: 250px;
+  }
+
+  .laser-guide {
+    width: 190px;
+    height: 190px;
+  }
+
+  /* Prevent iOS font auto-zoom by ensuring minimum 16px font */
+  input, select, textarea {
+    font-size: 16px !important;
+  }
+
+  /* Touch Ergonomics for Buttons */
+  .btn {
+    min-height: 48px;
+    padding: 0.75rem 1rem;
+    font-size: 0.92rem;
+    touch-action: manipulation;
+    -webkit-tap-highlight-color: transparent;
+  }
+
+  .btn:active {
+    transform: scale(0.96);
+    opacity: 0.9;
+  }
+
+  .scanner-controls {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 0.5rem;
+  }
+
+  .scanner-controls .btn {
+    width: 100%;
+    padding: 0.65rem 0.5rem;
+    font-size: 0.82rem;
+  }
+
+  .scanner-controls #btnStartScan {
+    grid-column: span 2;
+    min-height: 50px;
+    font-size: 1.05rem;
+  }
+
+  .stats-grid {
+    grid-template-columns: repeat(2, 1fr);
+    gap: 0.6rem;
+  }
+
+  .stat-card {
+    padding: 0.85rem;
+  }
+
+  .stat-card h3 {
+    font-size: 1.35rem;
+  }
+
+  /* Mobile Bottom Sheet Modals */
+  .modal-backdrop, [id$="Modal"] {
+    align-items: flex-end !important;
+    padding: 0 !important;
+  }
+
+  .modal-backdrop .card, [id$="Modal"] .card {
+    max-width: 100% !important;
+    width: 100% !important;
+    border-radius: 20px 20px 0 0 !important;
+    padding: 1.25rem 1.25rem calc(1.5rem + var(--safe-bottom)) !important;
+    animation: slideUpModal 0.25s ease !important;
+    margin: 0 !important;
+  }
+
+  @keyframes slideUpModal {
+    from { transform: translateY(100%); }
+    to { transform: translateY(0); }
+  }
+
+  /* Tables: smooth mobile touch scrolling */
+  .table-responsive {
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
+    border-radius: var(--radius-sm);
+  }
+
+  table {
+    min-width: 650px;
+  }
+
+  th, td {
+    padding: 0.65rem 0.75rem;
+    white-space: nowrap;
+  }
+
+  .toast-container {
+    bottom: calc(5rem + var(--safe-bottom));
+    right: 1rem;
+    left: 1rem;
+  }
+
+  .kta-card {
+    width: 285px;
+    height: 430px;
+    max-width: 90vw;
+  }
+}
+
 
