@@ -3,9 +3,11 @@
  * Sistem Absensi PIK-R MANSEKU
  */
 
-const CACHE_NAME = "pikr-manseku-v2";
+const CACHE_NAME = "pikr-manseku-v3";
 const ASSETS_TO_CACHE = [
   "./",
+  "./dashboard",
+  "./generator",
   "./index.html",
   "./dashboard.html",
   "./generator.html",

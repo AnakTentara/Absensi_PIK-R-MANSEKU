@@ -8,6 +8,20 @@
     ],
     "cleanUrls": true,
     "trailingSlash": false,
+    "rewrites": [
+      {
+        "source": "/dashboard",
+        "destination": "/dashboard.html"
+      },
+      {
+        "source": "/generator",
+        "destination": "/generator.html"
+      },
+      {
+        "source": "**",
+        "destination": "/index.html"
+      }
+    ],
     "headers": [
       {
         "source": "**",

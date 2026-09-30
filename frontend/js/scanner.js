@@ -17,7 +17,32 @@ document.addEventListener("DOMContentLoaded", () => {
   setupEventListeners();
   renderRecentLogs();
   checkAndSyncOfflineLogs();
+  checkUrlParameters();
 });
+
+async function checkUrlParameters() {
+  try {
+    const url = new URL(window.location.href);
+    let id = url.searchParams.get("id");
+    let sig = url.searchParams.get("sig");
+
+    if (!id && url.pathname.includes("/id/")) {
+      const parts = url.pathname.split("/id/");
+      if (parts[1]) {
+        id = parts[1].split("/")[0].split("?")[0].trim().toUpperCase();
+      }
+    }
+
+    if (id && sig) {
+      console.log("Mendeteksi scan QR dari URL parameter / path:", id, sig);
+      setTimeout(() => {
+        onScanSuccess(window.location.href, null);
+      }, 350);
+    }
+  } catch (e) {
+    console.warn("URL parameter check error:", e);
+  }
+}
 
 function initElements() {
   window.btnStart = document.getElementById("btnStartScan");
