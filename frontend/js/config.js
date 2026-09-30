@@ -23,6 +23,17 @@ const APP_CONFIG = {
   // Mode Uji Coba Lokal / Mock Data (Bisa diaktifkan jika belum deploy GAS)
   USE_MOCK_FALLBACK: true,
 
+  // Konfigurasi Firebase Hosting & Analytics (Project: absensi-pik-r)
+  FIREBASE_CONFIG: {
+    apiKey: "AIzaSyAn-AWu5VLA9Hxh1RLpjiJIDl82PTH9H9g",
+    authDomain: "absensi-pik-r.firebaseapp.com",
+    projectId: "absensi-pik-r",
+    storageBucket: "absensi-pik-r.firebasestorage.app",
+    messagingSenderId: "572782848196",
+    appId: "1:572782848196:web:9f00f1396825d2e0a90191",
+    measurementId: "G-T6DE0JXTMG"
+  },
+
   // Penyimpanan Lokal
   LOCAL_STORAGE_KEYS: {
     PETUGAS_NAME: "pikr_petugas_name",
