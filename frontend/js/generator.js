@@ -41,10 +41,49 @@ function setupTabs() {
 function setupSingleGenerator() {
   const btn = document.getElementById("btnGenerateSingle");
   const inputs = ["genId", "genNama", "genKelas", "genJabatan"];
+  const selectJabatan = document.getElementById("selectJabatanPreset");
+  const inputJabatan = document.getElementById("genJabatan");
+
+  if (selectJabatan && inputJabatan) {
+    selectJabatan.addEventListener("change", (e) => {
+      if (e.target.value === "__CUSTOM__") {
+        inputJabatan.style.display = "block";
+        inputJabatan.focus();
+      } else {
+        inputJabatan.style.display = "none";
+        inputJabatan.value = e.target.value;
+        updateSingleCard();
+      }
+    });
+  }
+
+  // Quick pick member buttons from SQLite 2026
+  const setMemberForm = (id, nama, kelas, jabatan) => {
+    document.getElementById("genId").value = id;
+    document.getElementById("genNama").value = nama;
+    document.getElementById("genKelas").value = kelas;
+    if (selectJabatan) selectJabatan.value = jabatan;
+    if (inputJabatan) {
+      inputJabatan.value = jabatan;
+      inputJabatan.style.display = "none";
+    }
+    updateSingleCard();
+    CryptoUtil.Sound.playPop();
+    CryptoUtil.Sound.triggerHaptic(18);
+  };
+
+  const btnFebri = document.getElementById("btnPickFebriady");
+  const btnHaikal = document.getElementById("btnPickHaikal");
+  const btnRendra = document.getElementById("btnPickRendra");
+
+  if (btnFebri) btnFebri.addEventListener("click", () => setMemberForm("PIKR-2026-001", "Febriady", "XII-1", "Ketua Umum"));
+  if (btnHaikal) btnHaikal.addEventListener("click", () => setMemberForm("PIKR-2026-002", "Haikal Mabrur", "XII-1", "Anggota MedInfo"));
+  if (btnRendra) btnRendra.addEventListener("click", () => setMemberForm("PIKR-2026-003", "Rendra Agus Setiawan", "XII-2", "Ketua MedInfo"));
 
   btn.addEventListener("click", updateSingleCard);
   inputs.forEach(id => {
-    document.getElementById(id).addEventListener("input", updateSingleCard);
+    const el = document.getElementById(id);
+    if (el) el.addEventListener("input", updateSingleCard);
   });
 }
 
@@ -52,7 +91,7 @@ async function updateSingleCard() {
   const id = document.getElementById("genId").value.trim().toUpperCase();
   const nama = document.getElementById("genNama").value.trim();
   const kelas = document.getElementById("genKelas").value.trim();
-  const jabatan = document.getElementById("genJabatan").value.trim();
+  const jabatan = document.getElementById("genJabatan").value.trim() || "Anggota Medinfo";
 
   if (!id) return;
 
@@ -62,15 +101,20 @@ async function updateSingleCard() {
   // 2. URL Masa Depan Kartu
   const qrUrl = `${APP_CONFIG.SCAN_BASE_URL}/id/${id}?sig=${sig}`;
 
-  // 3. Update Preview Teks
+  // 3. Simpan ke Registry Lokal agar Scanner Langsung Mengenali Siswa Ini
+  if (typeof MemberRegistry !== "undefined") {
+    MemberRegistry.saveMember({ id, nama, kelas, jabatan });
+  }
+
+  // 4. Update Preview Teks
   document.getElementById("previewSigToken").textContent = sig;
   document.getElementById("previewTargetUrl").textContent = qrUrl;
 
   document.getElementById("cardViewNama").textContent = nama || "Nama Anggota";
   document.getElementById("cardViewId").textContent = id;
-  document.getElementById("cardViewRole").textContent = `${kelas || "-"} • ${jabatan || "Anggota"}`;
+  document.getElementById("cardViewRole").textContent = `${kelas || "-"} • ${jabatan || "Anggota Medinfo"}`;
 
-  // 4. Render QR Code
+  // 5. Render QR Code
   const qrContainer = document.getElementById("qrcodeSingle");
   qrContainer.innerHTML = "";
 

@@ -267,6 +267,84 @@
     </div>
   </div>
 
+  <!-- Pop-Up Modal Konfirmasi Presensi Hasil Scan QR -->
+  <div id="scanConfirmModal" class="modal-backdrop" style="display: none;">
+    <div class="confirm-modal-card">
+      
+      <!-- Top Bar: Badge Jenis Presensi & Close Button -->
+      <div class="confirm-modal-header">
+        <span id="modalScanTypeBadge" class="confirm-scan-badge badge-masuk">
+          🟢 Presensi Masuk
+        </span>
+        <button type="button" id="btnTopCloseConfirm" class="confirm-close-btn" aria-label="Tutup">
+          ✕
+        </button>
+      </div>
+
+      <!-- Profil Siswa / Anggota -->
+      <div class="confirm-profile-section">
+        <div class="confirm-avatar-wrapper">
+          <div id="modalAvatar" class="confirm-avatar">A</div>
+          <div class="confirm-status-dot"></div>
+        </div>
+        
+        <h3 id="modalNama" class="confirm-name">Nama Siswa Lengkap</h3>
+        
+        <div class="confirm-pill-tags">
+          <span id="modalId" class="confirm-pill pill-id">PIKR-2026-001</span>
+          <span id="modalKelas" class="confirm-pill pill-kelas">XI IPA 1</span>
+          <span id="modalJabatan" class="confirm-pill pill-jabatan">Anggota Medinfo</span>
+        </div>
+      </div>
+
+      <!-- Card Jam Masuk & Jam Keluar -->
+      <div class="confirm-times-card">
+        <div class="confirm-time-box">
+          <div class="time-header">
+            <span class="time-emoji">⏰</span>
+            <span class="time-title">Jam Masuk</span>
+          </div>
+          <div id="modalJamMasuk" class="time-display time-masuk">14:15 WIB</div>
+        </div>
+
+        <div class="confirm-time-divider">
+          <span>➔</span>
+        </div>
+
+        <div class="confirm-time-box">
+          <div class="time-header">
+            <span class="time-emoji">🚪</span>
+            <span class="time-title">Jam Keluar</span>
+          </div>
+          <div id="modalJamKeluar" class="time-display time-keluar">-</div>
+        </div>
+      </div>
+
+      <!-- Info Tambahan: Agenda & Petugas -->
+      <div class="confirm-meta-box">
+        <div class="meta-row">
+          <span class="meta-label">📅 Agenda:</span>
+          <strong id="modalAgenda" class="meta-val">Pertemuan Mingguan</strong>
+        </div>
+        <div class="meta-row">
+          <span class="meta-label">👮 Petugas:</span>
+          <strong id="modalPetugas" class="meta-val">Kakak Senior</strong>
+        </div>
+      </div>
+
+      <!-- Action Buttons: Kembali & Presensi -->
+      <div class="confirm-btn-actions">
+        <button type="button" id="btnCancelScanConfirm" class="btn btn-secondary confirm-btn-cancel">
+          ↩️ Kembali
+        </button>
+        <button type="button" id="btnExecuteAttendance" class="btn btn-primary confirm-btn-execute">
+          ⚡ Presensi
+        </button>
+      </div>
+
+    </div>
+  </div>
+
   <!-- Mobile Bottom Navigation Dock (App Style) -->
 
   <nav class="mobile-bottom-nav no-print">

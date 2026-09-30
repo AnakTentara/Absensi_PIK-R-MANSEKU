@@ -321,13 +321,15 @@ function handleRecordAttendance(payload) {
   const sheetMembers = ss.getSheetByName(CONFIG.SHEET_MEMBERS);
   const sheetAttendance = ss.getSheetByName(CONFIG.SHEET_ATTENDANCE);
 
-  let nama = "Anggota (" + id + ")";
-  let kelas = "-";
+  let nama = payload.nama || ("Anggota (" + id + ")");
+  let kelas = payload.kelas || "-";
+  let jabatan = payload.jabatan || "Anggota MedInfo";
   const membersData = sheetMembers.getDataRange().getValues();
   for (let i = 1; i < membersData.length; i++) {
     if (String(membersData[i][0]).toUpperCase() === String(id).toUpperCase()) {
       nama = String(membersData[i][1] || nama);
       kelas = String(membersData[i][2] || kelas);
+      jabatan = String(membersData[i][3] || jabatan);
       break;
     }
   }
@@ -364,7 +366,7 @@ function handleRecordAttendance(payload) {
       status: "success",
       scanType: "MASUK",
       message: "Absen MASUK berhasil dicatat! (+10 Poin Keaktifan)",
-      data: { id: String(id), nama: String(nama), kelas: String(kelas), tanggal: dateStr, jamMasuk: timeStr, jamPulang: "-", status: "Hadir (Masuk)", poin: 10, sesi: agenda }
+      data: { id: String(id), nama: String(nama), kelas: String(kelas), jabatan: String(jabatan), tanggal: dateStr, jamMasuk: timeStr, jamPulang: "-", status: "Hadir (Masuk)", poin: 10, sesi: agenda }
     };
   }
 
@@ -384,7 +386,7 @@ function handleRecordAttendance(payload) {
       status: "success",
       scanType: "PULANG",
       message: "Absen PULANG berhasil dicatat! Kehadiran lengkap (+5 Poin Bonus)",
-      data: { id: String(id), nama: String(nama), kelas: String(kelas), tanggal: dateStr, jamMasuk: jamMasukStr, jamPulang: timeStr, status: "Hadir Lengkap", poin: 15, sesi: agenda }
+      data: { id: String(id), nama: String(nama), kelas: String(kelas), jabatan: String(jabatan), tanggal: dateStr, jamMasuk: jamMasukStr, jamPulang: timeStr, status: "Hadir Lengkap", poin: 15, sesi: agenda }
     };
   }
 

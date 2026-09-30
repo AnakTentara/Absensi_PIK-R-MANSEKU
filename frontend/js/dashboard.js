@@ -471,14 +471,18 @@ function exportToCsv() {
   showToast("File CSV berhasil di-download!", "success");
 }
 
-// Mock Dataset untuk Demo Awal
+// Dataset Resmi dari SQLite PIK-R MANSEKU 2026
 function getMockMembers() {
+  if (typeof MemberRegistry !== "undefined") {
+    return MemberRegistry.getMembers();
+  }
   return [
-    { id: "PIKR-2026-001", nama: "Muhammad Haikal", kelas: "XI IPA 1" },
-    { id: "PIKR-2026-002", nama: "Aisyah Nurul", kelas: "XI IPS 2" },
-    { id: "PIKR-2026-003", nama: "Rizky Pratama", kelas: "X-A" },
-    { id: "PIKR-2026-004", nama: "Nabila Zahra", kelas: "XII IPA 2" },
-    { id: "PIKR-2026-005", nama: "Fajar Nugraha", kelas: "XI IPS 1" }
+    { id: "PIKR-2026-001", nisn: "0098738253", nama: "Febriady", kelas: "XII-1", jabatan: "Ketua Umum" },
+    { id: "PIKR-2026-002", nisn: "3102603365", nama: "Haikal Mabrur", kelas: "XII-1", jabatan: "Anggota MedInfo" },
+    { id: "PIKR-2026-003", nisn: "0096384405", nama: "Rendra Agus Setiawan", kelas: "XII-2", jabatan: "Ketua MedInfo" },
+    { id: "PIKR-2026-004", nisn: "0102929148", nama: "Hasan Ajri", kelas: "XI-5", jabatan: "KABINET" },
+    { id: "PIKR-2026-005", nisn: "0098264927", nama: "Melani Ayu Safitri", kelas: "XII-1", jabatan: "Anggota Aktif" },
+    { id: "PIKR-2026-006", nisn: "0099193422", nama: "Nur Aisyah", kelas: "XII-3", jabatan: "KABINET" }
   ];
 }
 
@@ -488,44 +492,47 @@ function getMockAttendance() {
     {
       logId: "LOG-01",
       tanggal: today,
-      jamMasuk: "15:45:10",
+      jamMasuk: "15:30:10",
       jamPulang: "17:15:30",
       idAnggota: "PIKR-2026-001",
-      nama: "Muhammad Haikal",
-      kelas: "XI IPA 1",
+      nama: "Febriady",
+      kelas: "XII-1",
+      jabatan: "Ketua Umum",
       status: "Hadir (Lengkap)",
       sesi: "Pertemuan Mingguan",
       poin: 15,
-      petugas: "Kak Nur",
-      catatan: "Aktif bertanya & diskusi"
+      petugas: "Kak Senior",
+      catatan: "Memimpin pembukaan kegiatan"
     },
     {
       logId: "LOG-02",
       tanggal: today,
-      jamMasuk: "15:48:22",
+      jamMasuk: "15:35:22",
       jamPulang: "-",
       idAnggota: "PIKR-2026-002",
-      nama: "Aisyah Nurul",
-      kelas: "XI IPS 2",
+      nama: "Haikal Mabrur",
+      kelas: "XII-1",
+      jabatan: "Anggota MedInfo",
       status: "Hadir (Masuk)",
       sesi: "Pertemuan Mingguan",
       poin: 10,
-      petugas: "Kak Nur",
-      catatan: "-"
+      petugas: "Kak Senior",
+      catatan: "Dokumentasi & publikasi"
     },
     {
       logId: "LOG-03",
       tanggal: today,
-      jamMasuk: "-",
+      jamMasuk: "15:38:05",
       jamPulang: "-",
       idAnggota: "PIKR-2026-003",
-      nama: "Rizky Pratama",
-      kelas: "X-A",
-      status: "Izin",
+      nama: "Rendra Agus Setiawan",
+      kelas: "XII-2",
+      jabatan: "Ketua MedInfo",
+      status: "Hadir (Masuk)",
       sesi: "Pertemuan Mingguan",
-      poin: 2,
-      petugas: "Kak Nur",
-      catatan: "Ada les tambahan pelajaran"
+      poin: 10,
+      petugas: "Kak Senior",
+      catatan: "Koordinasi materi"
     }
   ];
 }

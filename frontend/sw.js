@@ -3,7 +3,7 @@
  * Sistem Absensi PIK-R MANSEKU
  */
 
-const CACHE_NAME = "pikr-manseku-v3";
+const CACHE_NAME = "pikr-manseku-v4";
 const ASSETS_TO_CACHE = [
   "./",
   "./dashboard",
@@ -13,6 +13,7 @@ const ASSETS_TO_CACHE = [
   "./generator.html",
   "./css/style.css",
   "./js/config.js",
+  "./js/firebase-init.js",
   "./js/crypto-util.js",
   "./js/scanner.js",
   "./js/dashboard.js",

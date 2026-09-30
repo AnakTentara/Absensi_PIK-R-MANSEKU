@@ -10,6 +10,8 @@ let availableCameras = [];
 let lastScannedId = null;
 let lastScanTime = 0;
 let todayLogs = [];
+let pendingAttendancePayload = null;
+let isModalConfirmOpen = false;
 
 document.addEventListener("DOMContentLoaded", () => {
   initElements();
@@ -179,11 +181,27 @@ function setupEventListeners() {
   if (camInput) camInput.addEventListener("change", (e) => { handleFileScan(e.target.files[0]); e.target.value = ""; });
   if (galInput) galInput.addEventListener("change", (e) => { handleFileScan(e.target.files[0]); e.target.value = ""; });
 
+  // Modal Konfirmasi Presensi Hasil Scan QR
+  const modalConfirm = document.getElementById("scanConfirmModal");
+  const btnCancelConfirm = document.getElementById("btnCancelScanConfirm");
+  const btnTopCloseConfirm = document.getElementById("btnTopCloseConfirm");
+  const btnExecConfirm = document.getElementById("btnExecuteAttendance");
+
+  if (btnCancelConfirm) btnCancelConfirm.addEventListener("click", closeScanConfirmModal);
+  if (btnTopCloseConfirm) btnTopCloseConfirm.addEventListener("click", closeScanConfirmModal);
+  if (btnExecConfirm) btnExecConfirm.addEventListener("click", executeConfirmedAttendance);
+
   // Mobile Friendly: Klik latar belakang modal untuk menutup
-  [modalManual, modalPermit, modalGas].forEach(m => {
+  [modalManual, modalPermit, modalGas, modalConfirm].forEach(m => {
     if (m) {
       m.addEventListener("click", (e) => {
-        if (e.target === m) m.style.display = "none";
+        if (e.target === m) {
+          if (m === modalConfirm) {
+            closeScanConfirmModal();
+          } else {
+            m.style.display = "none";
+          }
+        }
       });
     }
   });
@@ -292,11 +310,15 @@ async function switchCamera() {
 }
 
 /**
- * Handler Ketika QR Code Berhasil Terbaca
+ * Handler Ketika QR Code Berhasil Terbaca (Memicu Pop-Up Konfirmasi)
  */
 async function onScanSuccess(decodedText) {
+  if (isModalConfirmOpen) {
+    return;
+  }
+
   const now = Date.now();
-  // Cegah scan ganda dalam 2 detik untuk barcode yang sama
+  // Cegah scan ganda dalam 2.5 detik untuk QR yang sama jika modal belum terbuka
   if (decodedText === lastScannedId && now - lastScanTime < 2500) {
     return;
   }
@@ -309,7 +331,7 @@ async function onScanSuccess(decodedText) {
   const parsed = CryptoUtil.parseQrPayload(decodedText);
   if (!parsed || !parsed.id) {
     CryptoUtil.Sound.playError();
-    triggerHaptic([100, 50, 100]);
+    CryptoUtil.Sound.triggerHaptic([100, 50, 100]);
     showToast("Format QR Code tidak dikenali!", "error");
     return;
   }
@@ -319,7 +341,7 @@ async function onScanSuccess(decodedText) {
 
   if (!isValidSignature) {
     CryptoUtil.Sound.playError();
-    triggerHaptic([150, 80, 150]);
+    CryptoUtil.Sound.triggerHaptic([150, 80, 150]);
     displayScanResult({
       status: "invalid",
       id: parsed.id,
@@ -331,19 +353,168 @@ async function onScanSuccess(decodedText) {
     return;
   }
 
-  // 3. Tanda Tangan Valid!
-  // 4. Catat Kehadiran ke Backend
-  await recordAttendance({
-    id: parsed.id,
-    sig: parsed.sig,
-    petugas: (window.inputPetugas ? window.inputPetugas.value.trim() : "") || "Kakak Senior",
-    sesi: getCurrentAgenda(),
-    statusKehadiran: "Hadir"
-  });
+  // 3. Tanda Tangan Valid! Cari identitas lengkap siswa (Nama, Kelas, Jabatan)
+  const member = (typeof MemberRegistry !== "undefined")
+    ? MemberRegistry.findById(parsed.id)
+    : { id: parsed.id, nama: "Anggota (" + parsed.id + ")", kelas: "XI IPA 1", jabatan: "Anggota Medinfo" };
+
+  // 4. Periksa riwayat hari ini: Otomatis Masuk -> Pulang
+  const existing = todayLogs.find(l => (l.id || l.idAnggota || "").toUpperCase() === parsed.id.toUpperCase());
+  const currentTime = new Date();
+  const timeFormatted = currentTime.toLocaleTimeString("id-ID", { hour: "2-digit", minute: "2-digit" }) + " WIB";
+
+  let scanType = "MASUK";
+  let jamMasukDisplay = timeFormatted;
+  let jamKeluarDisplay = "-";
+
+  if (!existing) {
+    scanType = "MASUK";
+    jamMasukDisplay = timeFormatted;
+    jamKeluarDisplay = "-";
+  } else if (!existing.jamPulang || existing.jamPulang === "-") {
+    scanType = "PULANG";
+    jamMasukDisplay = existing.jamMasuk || existing.jam || timeFormatted;
+    jamKeluarDisplay = timeFormatted;
+  } else {
+    scanType = "LENGKAP";
+    jamMasukDisplay = existing.jamMasuk || existing.jam || "-";
+    jamKeluarDisplay = existing.jamPulang;
+  }
+
+  // 5. Buka Pop-Up Konfirmasi Presensi
+  openScanConfirmModal(member, scanType, jamMasukDisplay, jamKeluarDisplay, parsed);
 }
 
 function onScanFailure(error) {
   // Silent frame error
+}
+
+/**
+ * Menampilkan Pop-Up Konfirmasi Presensi
+ */
+function openScanConfirmModal(member, scanType, jamMasuk, jamKeluar, parsed) {
+  // Pause frame scanner agar kamera tidak terus menerus memindai di background
+  if (html5QrCode && isScanning) {
+    try { html5QrCode.pause(true); } catch (e) {}
+  }
+
+  CryptoUtil.Sound.playPop();
+  CryptoUtil.Sound.triggerHaptic(25);
+
+  const modal = document.getElementById("scanConfirmModal");
+  if (!modal) return;
+
+  const badgeEl = document.getElementById("modalScanTypeBadge");
+  const avatarEl = document.getElementById("modalAvatar");
+  const namaEl = document.getElementById("modalNama");
+  const idEl = document.getElementById("modalId");
+  const kelasEl = document.getElementById("modalKelas");
+  const jabatanEl = document.getElementById("modalJabatan");
+  const masukEl = document.getElementById("modalJamMasuk");
+  const keluarEl = document.getElementById("modalJamKeluar");
+  const agendaEl = document.getElementById("modalAgenda");
+  const petugasEl = document.getElementById("modalPetugas");
+  const btnExec = document.getElementById("btnExecuteAttendance");
+
+  if (avatarEl) avatarEl.textContent = member.nama ? member.nama.charAt(0).toUpperCase() : "A";
+  if (namaEl) namaEl.textContent = member.nama;
+  if (idEl) idEl.textContent = member.id;
+  if (kelasEl) kelasEl.textContent = member.kelas || "-";
+  if (jabatanEl) jabatanEl.textContent = member.jabatan || "Anggota Medinfo";
+  if (masukEl) masukEl.textContent = jamMasuk;
+  if (keluarEl) keluarEl.textContent = jamKeluar;
+  if (agendaEl) agendaEl.textContent = getCurrentAgenda();
+  if (petugasEl) petugasEl.textContent = (window.inputPetugas ? window.inputPetugas.value.trim() : "") || "Kakak Senior";
+
+  if (badgeEl) {
+    if (scanType === "PULANG") {
+      badgeEl.className = "confirm-scan-badge badge-pulang";
+      badgeEl.textContent = "🔵 Presensi Pulang (+5 Poin)";
+    } else if (scanType === "LENGKAP") {
+      badgeEl.className = "confirm-scan-badge badge-lengkap";
+      badgeEl.textContent = "⭐ Kehadiran Lengkap";
+    } else {
+      badgeEl.className = "confirm-scan-badge badge-masuk";
+      badgeEl.textContent = "🟢 Presensi Masuk (+10 Poin)";
+    }
+  }
+
+  if (btnExec) {
+    if (scanType === "PULANG") {
+      btnExec.textContent = "⚡ Presensi Pulang";
+      btnExec.className = "btn btn-primary confirm-btn-execute btn-pulang";
+    } else if (scanType === "LENGKAP") {
+      btnExec.textContent = "✓ Hadir Lengkap";
+      btnExec.className = "btn btn-secondary confirm-btn-execute";
+    } else {
+      btnExec.textContent = "⚡ Presensi Masuk";
+      btnExec.className = "btn btn-primary confirm-btn-execute";
+    }
+  }
+
+  pendingAttendancePayload = {
+    id: parsed.id,
+    sig: parsed.sig,
+    nama: member.nama,
+    kelas: member.kelas,
+    jabatan: member.jabatan,
+    petugas: (window.inputPetugas ? window.inputPetugas.value.trim() : "") || "Kakak Senior",
+    sesi: getCurrentAgenda(),
+    statusKehadiran: "Hadir",
+    scanType: scanType,
+    jamMasuk: jamMasuk,
+    jamKeluar: jamKeluar
+  };
+
+  isModalConfirmOpen = true;
+  modal.style.display = "flex";
+}
+
+/**
+ * Tutup Pop-Up Konfirmasi Presensi & Lanjutkan Scanning
+ */
+function closeScanConfirmModal() {
+  const modal = document.getElementById("scanConfirmModal");
+  if (modal) modal.style.display = "none";
+  isModalConfirmOpen = false;
+  pendingAttendancePayload = null;
+
+  CryptoUtil.Sound.playDismiss();
+  CryptoUtil.Sound.triggerHaptic(10);
+
+  // Resume kamera jika scanner aktif
+  if (html5QrCode && isScanning) {
+    try { html5QrCode.resume(); } catch (e) {}
+  }
+
+  setTimeout(() => {
+    lastScannedId = null;
+  }, 1000);
+}
+
+/**
+ * Eksekusi Presensi Setelah Dikonfirmasi Oleh Pengguna
+ */
+async function executeConfirmedAttendance() {
+  if (!pendingAttendancePayload) return;
+  const payload = { ...pendingAttendancePayload };
+
+  const modal = document.getElementById("scanConfirmModal");
+  if (modal) modal.style.display = "none";
+  isModalConfirmOpen = false;
+  pendingAttendancePayload = null;
+
+  // Catat kehadiran
+  await recordAttendance(payload);
+
+  // Resume kamera setelah presensi dicatat
+  if (html5QrCode && isScanning) {
+    try { html5QrCode.resume(); } catch (e) {}
+  }
+
+  setTimeout(() => {
+    lastScannedId = null;
+  }, 1500);
 }
 
 /**
@@ -360,14 +531,15 @@ function getCurrentAgenda() {
 }
 
 /**
- * Kirim Absensi ke Google Apps Script (Auto Check-In / Check-Out)
+ * Kirim Absensi ke Google Apps Script / Local Offline (Auto Check-In / Check-Out)
  */
 async function recordAttendance(payload) {
   displayScanResult({
     status: "processing",
     id: payload.id,
-    nama: "Memverifikasi data...",
-    kelas: "Mohon tunggu sebentar",
+    nama: payload.nama || "Memverifikasi data...",
+    kelas: payload.kelas || "Mohon tunggu sebentar",
+    jabatan: payload.jabatan || "Anggota",
     message: "Menghubungkan ke Google Sheets..."
   });
 
@@ -390,15 +562,25 @@ async function recordAttendance(payload) {
 
     if (isMock) {
       // Mock Fallback jika user belum memasang ID Apps Script nyata
-      await new Promise(r => setTimeout(r, 600));
-      // Cek apakah di local sudah ada hari ini
-      const existing = todayLogs.find(l => l.id === payload.id);
+      await new Promise(r => setTimeout(r, 450));
+      const existing = todayLogs.find(l => (l.id || l.idAnggota || "").toUpperCase() === payload.id.toUpperCase());
+
       if (!existing) {
         responseData = {
           status: "success",
           scanType: "MASUK",
-          message: "Absen MASUK berhasil dicatat! (+10 Poin)",
-          data: { id: payload.id, nama: "Anggota (" + payload.id + ")", kelas: "XI IPA 1", jamMasuk: timeStr, jamPulang: "-", status: "Hadir (Masuk)", poin: 10, sesi: payload.sesi }
+          message: `Absen MASUK berhasil dicatat! (+10 Poin)`,
+          data: {
+            id: payload.id,
+            nama: payload.nama || ("Anggota (" + payload.id + ")"),
+            kelas: payload.kelas || "XI IPA 1",
+            jabatan: payload.jabatan || "Anggota Medinfo",
+            jamMasuk: timeStr,
+            jamPulang: "-",
+            status: "Hadir (Masuk)",
+            poin: 10,
+            sesi: payload.sesi
+          }
         };
       } else if (existing.jamPulang === "-" || !existing.jamPulang) {
         existing.jamPulang = timeStr;
@@ -407,13 +589,23 @@ async function recordAttendance(payload) {
         responseData = {
           status: "success",
           scanType: "PULANG",
-          message: "Absen PULANG berhasil dicatat! Kehadiran lengkap (+5 Poin Bonus)",
-          data: { id: payload.id, nama: existing.nama, kelas: existing.kelas, jamMasuk: existing.jamMasuk || existing.jam, jamPulang: timeStr, status: "Hadir Lengkap", poin: 15, sesi: payload.sesi }
+          message: `Absen PULANG berhasil dicatat! Kehadiran lengkap (+5 Poin Bonus)`,
+          data: {
+            id: payload.id,
+            nama: existing.nama || payload.nama,
+            kelas: existing.kelas || payload.kelas,
+            jabatan: existing.jabatan || payload.jabatan || "Anggota Medinfo",
+            jamMasuk: existing.jamMasuk || existing.jam || timeStr,
+            jamPulang: timeStr,
+            status: "Hadir Lengkap",
+            poin: 15,
+            sesi: payload.sesi
+          }
         };
       } else {
         responseData = {
           status: "already_completed",
-          message: `Kehadiran ${existing.nama} sudah LENGKAP hari ini!\n• Masuk: ${existing.jamMasuk || existing.jam}\n• Pulang: ${existing.jamPulang}`,
+          message: `Kehadiran ${existing.nama || payload.nama} sudah LENGKAP hari ini!\n• Masuk: ${existing.jamMasuk || existing.jam}\n• Pulang: ${existing.jamPulang}`,
           data: existing
         };
       }
@@ -428,22 +620,23 @@ async function recordAttendance(payload) {
 
     if (responseData.status === "success") {
       const data = responseData.data || {};
-      const scanType = responseData.scanType || "MASUK";
+      const scanType = responseData.scanType || payload.scanType || "MASUK";
 
       if (scanType === "PULANG") {
         CryptoUtil.Sound.playCheckoutFanfare();
-        triggerHaptic([60, 40, 60, 40, 100]);
+        CryptoUtil.Sound.triggerHaptic([60, 40, 60, 40, 100]);
       } else {
         CryptoUtil.Sound.playSuccess();
-        triggerHaptic([60]);
+        CryptoUtil.Sound.triggerHaptic(60);
       }
 
       const record = {
         id: data.id || payload.id,
-        nama: data.nama || payload.id,
-        kelas: data.kelas || "-",
-        jamMasuk: data.jamMasuk || timeStr,
-        jamPulang: data.jamPulang || "-",
+        nama: data.nama || payload.nama || payload.id,
+        kelas: data.kelas || payload.kelas || "-",
+        jabatan: data.jabatan || payload.jabatan || "Anggota Medinfo",
+        jamMasuk: data.jamMasuk || payload.jamMasuk || timeStr,
+        jamPulang: data.jamPulang || (scanType === "PULANG" ? timeStr : "-"),
         status: data.status || (scanType === "PULANG" ? "Hadir Lengkap" : "Hadir (Masuk)"),
         petugas: payload.petugas,
         poin: data.poin || (scanType === "PULANG" ? 15 : 10)
@@ -456,6 +649,7 @@ async function recordAttendance(payload) {
         id: record.id,
         nama: record.nama,
         kelas: record.kelas,
+        jabatan: record.jabatan,
         jamMasuk: record.jamMasuk,
         jamPulang: record.jamPulang,
         poin: record.poin,
@@ -465,16 +659,17 @@ async function recordAttendance(payload) {
 
     } else if (responseData.status === "already_completed" || responseData.status === "already_recorded") {
       CryptoUtil.Sound.playWarning();
-      triggerHaptic([80, 50, 80]);
+      CryptoUtil.Sound.triggerHaptic([80, 50, 80]);
       
       const member = responseData.data || responseData.member || {};
       displayScanResult({
         status: "warning",
         id: member.id || payload.id,
-        nama: member.nama || payload.id,
-        kelas: member.kelas || "-",
-        jamMasuk: member.jamMasuk || "-",
-        jamPulang: member.jamPulang || "-",
+        nama: member.nama || payload.nama || payload.id,
+        kelas: member.kelas || payload.kelas || "-",
+        jabatan: member.jabatan || payload.jabatan || "Anggota",
+        jamMasuk: member.jamMasuk || payload.jamMasuk || "-",
+        jamPulang: member.jamPulang || payload.jamKeluar || "-",
         poin: member.poin || 15,
         message: responseData.message || "Anggota ini sudah absen lengkap hari ini."
       });
@@ -485,8 +680,9 @@ async function recordAttendance(payload) {
       displayScanResult({
         status: "error",
         id: payload.id,
-        nama: "Gagal Absen",
-        kelas: "-",
+        nama: payload.nama || "Gagal Absen",
+        kelas: payload.kelas || "-",
+        jabatan: payload.jabatan || "Anggota",
         message: responseData.message || "Terjadi kesalahan pada sistem."
       });
       showToast(responseData.message || "Gagal mencatat absensi", "error");
@@ -499,8 +695,9 @@ async function recordAttendance(payload) {
     displayScanResult({
       status: "offline_saved",
       id: payload.id,
-      nama: "Tersimpan Offline",
-      kelas: "Koneksi Terputus",
+      nama: payload.nama || "Tersimpan Offline",
+      kelas: payload.kelas || "Koneksi Terputus",
+      jabatan: payload.jabatan || "Anggota",
       jamMasuk: timeStr,
       jamPulang: "-",
       message: "Data diamankan di memori HP. Otomatis disinkronkan saat sinyal pulih."
@@ -662,11 +859,12 @@ function renderRecentLogs() {
     <div class="log-item">
       <div class="log-details">
         <h4>${log.nama}</h4>
-        <span>${log.id} • ${log.kelas} • Petugas: ${log.petugas}</span>
+        <span>${log.id} • ${log.kelas}${log.jabatan ? ` • <strong style="color:var(--primary); font-weight: 600;">${log.jabatan}</strong>` : ""}</span>
+        <div style="font-size: 0.72rem; color: var(--text-muted); margin-top: 0.15rem;">Petugas: ${log.petugas}</div>
       </div>
       <div style="text-align: right;">
-        <span class="badge badge-success">${log.status}</span>
-        <div style="font-size: 0.72rem; color: var(--text-muted); margin-top: 0.2rem;">${log.jam}</div>
+        <span class="badge ${log.status.includes('Lengkap') ? 'badge-info' : 'badge-success'}">${log.status}</span>
+        <div style="font-size: 0.72rem; color: var(--text-muted); margin-top: 0.2rem;">${log.jamMasuk ? log.jamMasuk + (log.jamPulang && log.jamPulang !== '-' ? ' - ' + log.jamPulang : '') : (log.jam || '-')}</div>
       </div>
     </div>
   `).join("");

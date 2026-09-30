@@ -30,8 +30,8 @@ const APP_CONFIG = {
     projectId: "absensi-pik-r",
     storageBucket: "absensi-pik-r.firebasestorage.app",
     messagingSenderId: "572782848196",
-    appId: "1:572782848196:web:9f00f1396825d2e0a90191",
-    measurementId: "G-T6DE0JXTMG"
+    appId: "1:572782848196:web:54f4d25ed92b4258a90191",
+    measurementId: "G-BWEE9HZ2RR"
   },
 
   // Penyimpanan Lokal

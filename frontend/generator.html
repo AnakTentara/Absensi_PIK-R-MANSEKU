@@ -46,7 +46,7 @@
     </div>
 
     <!-- Section 1: Single Card Generator -->
-    <div id="sectionSingle" class="no-print" style="display: grid; grid-template-columns: 1fr 1fr; gap: 2rem; align-items: start;">
+    <div id="sectionSingle" class="generator-single-grid no-print">
       
       <!-- Input Form -->
       <div class="card">
@@ -55,25 +55,53 @@
         </div>
 
         <div style="display: flex; flex-direction: column; gap: 0.85rem;">
+          <!-- Quick Member Selector from SQLite 2026 -->
           <div>
-            <label style="font-size: 0.75rem; font-weight: 600;">ID Anggota (Format Bebas)</label>
+            <label style="font-size: 0.75rem; font-weight: 600; color: var(--text-muted);">Pilih Cepat Anggota 2026:</label>
+            <div style="display: flex; gap: 0.4rem; margin-top: 0.25rem; flex-wrap: wrap;">
+              <button type="button" id="btnPickFebriady" class="btn btn-secondary btn-sm" style="padding: 0.3rem 0.65rem; font-size: 0.78rem;">
+                👑 Febriady (Ketua)
+              </button>
+              <button type="button" id="btnPickHaikal" class="btn btn-secondary btn-sm" style="padding: 0.3rem 0.65rem; font-size: 0.78rem;">
+                📸 Haikal (MedInfo)
+              </button>
+              <button type="button" id="btnPickRendra" class="btn btn-secondary btn-sm" style="padding: 0.3rem 0.65rem; font-size: 0.78rem;">
+                🎖️ Rendra (Ketua MedInfo)
+              </button>
+            </div>
+          </div>
+
+          <div>
+            <label style="font-size: 0.75rem; font-weight: 600;">ID Anggota (Format Bebas / NISN)</label>
             <input type="text" id="genId" placeholder="Contoh: PIKR-2026-001" value="PIKR-2026-001" style="width: 100%; padding: 0.6rem; border: 1px solid var(--border); border-radius: var(--radius-sm); text-transform: uppercase;">
           </div>
           <div>
             <label style="font-size: 0.75rem; font-weight: 600;">Nama Lengkap Siswa</label>
-            <input type="text" id="genNama" placeholder="Nama siswa/i..." value="Muhammad Haikal" style="width: 100%; padding: 0.6rem; border: 1px solid var(--border); border-radius: var(--radius-sm);">
+            <input type="text" id="genNama" placeholder="Nama siswa/i..." value="Febriady" style="width: 100%; padding: 0.6rem; border: 1px solid var(--border); border-radius: var(--radius-sm);">
           </div>
           <div>
             <label style="font-size: 0.75rem; font-weight: 600;">Kelas / Jurusan</label>
-            <input type="text" id="genKelas" placeholder="Contoh: XI IPA 1" value="XI IPA 1" style="width: 100%; padding: 0.6rem; border: 1px solid var(--border); border-radius: var(--radius-sm);">
+            <input type="text" id="genKelas" placeholder="Contoh: XII-1" value="XII-1" style="width: 100%; padding: 0.6rem; border: 1px solid var(--border); border-radius: var(--radius-sm);">
           </div>
           <div>
-            <label style="font-size: 0.75rem; font-weight: 600;">Jabatan / Status di PIK-R</label>
-            <input type="text" id="genJabatan" placeholder="Contoh: Anggota Aktif" value="Ketua / Pengurus" style="width: 100%; padding: 0.6rem; border: 1px solid var(--border); border-radius: var(--radius-sm);">
+            <label style="font-size: 0.75rem; font-weight: 600;">Jabatan / Posisi di PIK-R</label>
+            <select id="selectJabatanPreset" style="width: 100%; padding: 0.6rem; border: 1px solid var(--border); border-radius: var(--radius-sm); margin-bottom: 0.35rem; background: var(--surface);">
+              <option value="Ketua Umum" selected>👑 Ketua Umum</option>
+              <option value="Anggota MedInfo">📸 Anggota MedInfo</option>
+              <option value="Ketua MedInfo">🎖️ Ketua MedInfo</option>
+              <option value="Wakil Ketua">🤝 Wakil Ketua</option>
+              <option value="Sekretaris">✍️ Sekretaris</option>
+              <option value="Bendahara">💰 Bendahara</option>
+              <option value="Divisi Konseling Sebaya">💬 Divisi Konseling Sebaya</option>
+              <option value="Divisi Pendidik Sebaya">📖 Divisi Pendidik Sebaya</option>
+              <option value="Anggota Aktif">⭐ Anggota Aktif</option>
+              <option value="__CUSTOM__">✍️ Ketik Jabatan Sendiri...</option>
+            </select>
+            <input type="text" id="genJabatan" placeholder="Ketik jabatan siswa..." value="Ketua Umum" style="display: none; width: 100%; padding: 0.6rem; border: 1px solid var(--border); border-radius: var(--radius-sm);">
           </div>
 
           <div style="background: var(--surface-alt); padding: 0.75rem; border-radius: var(--radius-sm); border: 1px solid var(--border);">
-            <div style="font-size: 0.75rem; color: var(--text-muted); font-weight: 600;">Signature Token Terhitung:</div>
+            <div style="font-size: 0.75rem; color: var(--text-muted); font-weight: 600;">Signature Token Terhitung (HMAC-SHA256):</div>
             <div id="previewSigToken" style="font-family: monospace; font-size: 0.95rem; font-weight: 700; color: var(--primary); margin: 0.2rem 0;">-</div>
             <div style="font-size: 0.7rem; color: var(--text-muted); word-break: break-all;" id="previewTargetUrl">-</div>
           </div>
@@ -84,30 +112,46 @@
         </div>
       </div>
 
-      <!-- Preview Single Card -->
-      <div style="display: flex; flex-direction: column; align-items: center; gap: 1rem;">
-        <div id="singleCardPreview" class="kta-card">
-          <div class="kta-header">
-            <img src="logo/logo_pik-r.png" alt="Logo" style="width: 48px; height: 48px; object-fit: contain; margin-bottom: 0.2rem; filter: drop-shadow(0 2px 4px rgba(0,0,0,0.3));">
-            <h2>PIK-R MANSEKU</h2>
-            <p>MAN 1 Muara Enim • Kartu Tanda Anggota</p>
-          </div>
-
-          <div class="kta-qr-box">
-            <div id="qrcodeSingle"></div>
-            <div style="font-size: 0.68rem; color: #64748b; margin-top: 0.35rem; font-weight: 600;">
-              SCAN IDENTITAS / ABSENSI
+      <!-- Preview Single Card (Mobile-Optimized Realistic Badge) -->
+      <div class="kta-preview-column">
+        <div class="kta-badge-holder">
+          <div class="kta-lanyard-hole"></div>
+          
+          <div id="singleCardPreview" class="kta-card">
+            <!-- Hologram & Chip Header -->
+            <div class="kta-card-topbar">
+              <div class="kta-gold-chip">
+                <span class="chip-line"></span>
+                <span class="chip-line"></span>
+              </div>
+              <div class="kta-watermark-tag">OFFICIAL ID</div>
             </div>
-          </div>
 
-          <div class="kta-footer">
-            <div class="kta-name" id="cardViewNama">Muhammad Haikal</div>
-            <div class="kta-id" id="cardViewId">PIKR-2026-001</div>
-            <div class="kta-role" id="cardViewRole">XI IPA 1 • Ketua / Pengurus</div>
+            <!-- Header Organisasi -->
+            <div class="kta-header">
+              <img src="logo/logo_pik-r.png" alt="Logo PIK-R MANSEKU" class="kta-logo-img">
+              <h2>PIK-R MANSEKU</h2>
+              <p>MAN 1 Muara Enim • Kartu Tanda Anggota</p>
+            </div>
+
+            <!-- QR Code Box -->
+            <div class="kta-qr-box">
+              <div id="qrcodeSingle"></div>
+              <div class="kta-qr-label">
+                SCAN IDENTITAS / PRESENSI
+              </div>
+            </div>
+
+            <!-- Footer Identitas Siswa -->
+            <div class="kta-footer">
+              <div class="kta-name" id="cardViewNama">Muhammad Haikal</div>
+              <div class="kta-id-pill" id="cardViewId">PIKR-2026-001</div>
+              <div class="kta-role-badge" id="cardViewRole">XI IPA 1 • Anggota Medinfo</div>
+            </div>
           </div>
         </div>
 
-        <div style="display: flex; gap: 0.5rem; flex-wrap: wrap; justify-content: center; width: 100%;">
+        <div class="kta-action-buttons">
           <button id="btnDownloadSinglePlainQr" class="btn btn-primary">
             📥 Download QR Polos (.png)
           </button>

@@ -252,6 +252,86 @@ const CryptoUtil = {
         osc.start(this.ctx.currentTime);
         osc.stop(this.ctx.currentTime + 0.25);
       } catch (err) {}
+    },
+    // Suara Klik Fisik Mekanikal (Ultra-satisfying Tactile Switch)
+    playClick() {
+      try {
+        this.init();
+        if (!this.ctx) return;
+        if (this.ctx.state === "suspended") this.ctx.resume();
+
+        const osc = this.ctx.createOscillator();
+        const gain = this.ctx.createGain();
+
+        osc.type = "sine";
+        osc.frequency.setValueAtTime(750, this.ctx.currentTime);
+        osc.frequency.exponentialRampToValueAtTime(220, this.ctx.currentTime + 0.035);
+
+        gain.gain.setValueAtTime(0.06, this.ctx.currentTime);
+        gain.gain.exponentialRampToValueAtTime(0.001, this.ctx.currentTime + 0.035);
+
+        osc.connect(gain);
+        gain.connect(this.ctx.destination);
+
+        osc.start(this.ctx.currentTime);
+        osc.stop(this.ctx.currentTime + 0.035);
+      } catch (e) {}
+    },
+    // Suara Pop Lembut (Saat Scan Berhasil / Modal Buka)
+    playPop() {
+      try {
+        this.init();
+        if (!this.ctx) return;
+        if (this.ctx.state === "suspended") this.ctx.resume();
+
+        const osc = this.ctx.createOscillator();
+        const gain = this.ctx.createGain();
+
+        osc.type = "sine";
+        osc.frequency.setValueAtTime(420, this.ctx.currentTime);
+        osc.frequency.exponentialRampToValueAtTime(840, this.ctx.currentTime + 0.06);
+
+        gain.gain.setValueAtTime(0.1, this.ctx.currentTime);
+        gain.gain.exponentialRampToValueAtTime(0.001, this.ctx.currentTime + 0.08);
+
+        osc.connect(gain);
+        gain.connect(this.ctx.destination);
+
+        osc.start(this.ctx.currentTime);
+        osc.stop(this.ctx.currentTime + 0.08);
+      } catch (e) {}
+    },
+    // Suara Dismiss / Tutup Modal (Lembut Menurun)
+    playDismiss() {
+      try {
+        this.init();
+        if (!this.ctx) return;
+        if (this.ctx.state === "suspended") this.ctx.resume();
+
+        const osc = this.ctx.createOscillator();
+        const gain = this.ctx.createGain();
+
+        osc.type = "sine";
+        osc.frequency.setValueAtTime(380, this.ctx.currentTime);
+        osc.frequency.exponentialRampToValueAtTime(160, this.ctx.currentTime + 0.05);
+
+        gain.gain.setValueAtTime(0.05, this.ctx.currentTime);
+        gain.gain.exponentialRampToValueAtTime(0.001, this.ctx.currentTime + 0.05);
+
+        osc.connect(gain);
+        gain.connect(this.ctx.destination);
+
+        osc.start(this.ctx.currentTime);
+        osc.stop(this.ctx.currentTime + 0.05);
+      } catch (e) {}
+    },
+    // Haptic Vibration untuk Android / HP Touch
+    triggerHaptic(pattern = 12) {
+      if (typeof navigator !== "undefined" && navigator.vibrate) {
+        try {
+          navigator.vibrate(pattern);
+        } catch (e) {}
+      }
     }
   },
 
@@ -269,3 +349,162 @@ const CryptoUtil = {
     return hex.substring(0, APP_CONFIG.SIG_LENGTH).toUpperCase();
   }
 };
+
+/**
+ * Registry Anggota PIK-R Terpadu (Nama, Kelas, Jabatan)
+ * Memastikan identitas anggota langsung muncul lengkap saat discan
+ */
+const MemberRegistry = {
+  STORAGE_KEY: "pikr_members_registry_v1",
+
+  DEFAULT_MEMBERS: [
+    {
+      id: "PIKR-2026-001",
+      nisn: "0098738253",
+      nama: "Febriady",
+      kelas: "XII-1",
+      jabatan: "Ketua Umum",
+      whatsappNumber: "0895604910792",
+      email: "adyfebri0202@gmail.com",
+      status: "ACTIVE"
+    },
+    {
+      id: "PIKR-2026-002",
+      nisn: "3102603365",
+      nama: "Haikal Mabrur",
+      kelas: "XII-1",
+      jabatan: "Anggota MedInfo",
+      whatsappNumber: "89675732001",
+      email: "anaktentara25@gmail.com",
+      status: "ACTIVE"
+    },
+    {
+      id: "PIKR-2026-003",
+      nisn: "0096384405",
+      nama: "Rendra Agus Setiawan",
+      kelas: "XII-2",
+      jabatan: "Ketua MedInfo",
+      whatsappNumber: "082373352409",
+      email: "rendraagus144@gmail.com",
+      status: "ACTIVE"
+    },
+    {
+      id: "PIKR-2026-004",
+      nisn: "0102929148",
+      nama: "Hasan Ajri",
+      kelas: "XI-5",
+      jabatan: "KABINET",
+      status: "ACTIVE"
+    },
+    {
+      id: "PIKR-2026-005",
+      nisn: "0098264927",
+      nama: "Melani Ayu Safitri",
+      kelas: "XII-1",
+      jabatan: "Anggota Aktif",
+      status: "ACTIVE"
+    },
+    {
+      id: "PIKR-2026-006",
+      nisn: "0099193422",
+      nama: "Nur Aisyah",
+      kelas: "XII-3",
+      jabatan: "KABINET",
+      status: "ACTIVE"
+    }
+  ],
+
+  getMembers() {
+    try {
+      const stored = localStorage.getItem(this.STORAGE_KEY);
+      if (stored) {
+        const parsed = JSON.parse(stored);
+        if (Array.isArray(parsed) && parsed.length > 0) {
+          return parsed;
+        }
+      }
+    } catch (e) {}
+    return this.DEFAULT_MEMBERS;
+  },
+
+  saveMember(member) {
+    if (!member || !member.id) return;
+    const members = this.getMembers();
+    const cleanId = String(member.id).trim().toUpperCase();
+    const idx = members.findIndex(m => m.id.toUpperCase() === cleanId || (m.nisn && m.nisn === cleanId));
+    const updated = {
+      id: cleanId,
+      nisn: member.nisn || (members[idx] ? members[idx].nisn : ""),
+      nama: member.nama || ("Anggota (" + cleanId + ")"),
+      kelas: member.kelas || "-",
+      jabatan: member.jabatan || "Anggota MedInfo"
+    };
+    if (idx >= 0) {
+      members[idx] = { ...members[idx], ...updated };
+    } else {
+      members.push(updated);
+    }
+    try {
+      localStorage.setItem(this.STORAGE_KEY, JSON.stringify(members));
+    } catch (e) {}
+  },
+
+  saveBatch(newMembers) {
+    if (!Array.isArray(newMembers)) return;
+    const current = this.getMembers();
+    const map = new Map(current.map(m => [m.id.toUpperCase(), m]));
+    newMembers.forEach(m => {
+      if (m && m.id) {
+        const cleanId = String(m.id).trim().toUpperCase();
+        map.set(cleanId, {
+          id: cleanId,
+          nisn: m.nisn || (map.get(cleanId) ? map.get(cleanId).nisn : ""),
+          nama: m.nama || (map.get(cleanId) ? map.get(cleanId).nama : "Anggota (" + cleanId + ")"),
+          kelas: m.kelas || (map.get(cleanId) ? map.get(cleanId).kelas : "-"),
+          jabatan: m.jabatan || (map.get(cleanId) ? map.get(cleanId).jabatan : "Anggota MedInfo")
+        });
+      }
+    });
+    const merged = Array.from(map.values());
+    try {
+      localStorage.setItem(this.STORAGE_KEY, JSON.stringify(merged));
+    } catch (e) {}
+  },
+
+  findById(id) {
+    if (!id) return null;
+    const cleanId = String(id).trim().toUpperCase();
+    const members = this.getMembers();
+    const found = members.find(m => 
+      m.id.toUpperCase() === cleanId || 
+      (m.nisn && m.nisn === cleanId) ||
+      (m.nama && m.nama.toUpperCase() === cleanId)
+    );
+    if (found) return found;
+    return {
+      id: cleanId,
+      nama: "Anggota (" + cleanId + ")",
+      kelas: "Siswa Terdaftar",
+      jabatan: "Anggota MedInfo"
+    };
+  }
+};
+
+// Global tactile feedback attacher untuk tombol, nav, & logo (Satisfying micro-interactions)
+document.addEventListener("DOMContentLoaded", () => {
+  document.addEventListener("click", (e) => {
+    const el = e.target.closest("button, .btn, .nav-btn, .mob-nav-item, .brand, .log-item, .stat-card");
+    if (!el) return;
+
+    if (el.classList.contains("brand")) {
+      CryptoUtil.Sound.playPop();
+      CryptoUtil.Sound.triggerHaptic([15, 25, 20]);
+    } else if (el.id && (el.id.includes("Cancel") || el.id.includes("Close") || el.id.startsWith("btnClose"))) {
+      CryptoUtil.Sound.playDismiss();
+      CryptoUtil.Sound.triggerHaptic(10);
+    } else {
+      CryptoUtil.Sound.playClick();
+      CryptoUtil.Sound.triggerHaptic(12);
+    }
+  }, { passive: true });
+});

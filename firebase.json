@@ -1,5 +1,6 @@
 {
   "hosting": {
+    "site": "absensi-pik-r",
     "public": "frontend",
     "ignore": [
       "firebase.json",
