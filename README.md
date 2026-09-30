@@ -18,17 +18,18 @@
      $$\text{Token} = \text{HMAC-SHA256}(\text{ID Anggota}, \text{Secret Key})$$
    - Oknum siswa yang mencoba membuat QR sendiri dengan ID sembarang **pasti ditolak sistem** karena tidak memiliki Secret Key server.
 
-3. **Kartu Fisik Tahan 3 Tahun (Agnostik & Multi-Peran)**
-   - Format URL: `https://absensi.pikr-manseku.my.id/id/{idAnggota}?sig={token}`
+3. **Kartu Fisik Tahan 3 Tahun & Dual-Purpose QR Code**
+   - Format URL: `https://pikr-manseku.web.app/anggota/{idAnggota}?sig={token}`
    - Kartu dicetak 1 kali saat siswa mendaftar, dapat dipakai sampai lulus.
-   - **Jika discan kamera HP umum:** Membuka verifikasi identitas resmi anggota PIK-R.
-   - **Jika discan oleh HP Kakak Senior (Scanner Absen):** Langsung mencatat kehadiran ke Google Sheets.
+   - **Jika dipindai kamera HP umum / siapa saja:** Mengarahkan ke profil resmi anggota di portal [pikr-manseku.web.app](https://pikr-manseku.web.app).
+   - **Jika dipindai scanner internal absensi (`absensi-pik-r.web.app`):** Memverifikasi tanda tangan digital HMAC dan membuka **Pop-Up Konfirmasi Presensi** (Nama, Kelas, Jabatan, Jam Masuk, Jam Keluar) dengan tombol "Kembali" & "Presensi".
 
-4. **Kenyamanan Kakak Senior (Scanner Web App)**
-   - Akses instan di browser HP (Chrome / Safari) tanpa install APK berat.
-   - Dilengkapi **Audio Chime (D5-A5 Sine Wave)** dan **Getar (Haptic Feedback)** saat berhasil scan.
-   - **Cegah Dobel Scan:** Anggota yang sama tidak bisa absen dua kali dalam 1 pertemuan.
-   - **Antrean Offline:** Jika sinyal di madrasah mati, absensi disimpan di memori HP dan otomatis tersinkron saat internet tersambung kembali.
+4. **Kenyamanan Petugas & Interaksi Memuaskan (Satisfying Micro-Interactions)**
+   - PWA Responsif & mobile-first (Android & iOS).
+   - Pop-up modal konfirmasi saat QR terdeteksi untuk memastikan petugas memeriksa identitas siswa sebelum mencatat presensi.
+   - Tombol 3D berpegas, logo yang memantul lembut, serta efek suara Web Audio API (pop, scanner beep, success fanfare) dan getaran getar (haptic feedback).
+   - **Cegah Dobel Scan & Auto Masuk/Pulang:** Scan pertama otomatis mencatat jam masuk, scan kedua otomatis mencatat jam pulang.
+   - **Antrean Offline:** Jika sinyal di madrasah mati, absensi disimpan di IndexedDB/localStorage dan otomatis tersinkron saat internet tersambung kembali.
    - **Absen Manual:** Tersedia tombol darurat jika kartu siswa tertinggal di kelas.
 
 5. **Ekspor Data Online & Offline 1-Klik**
@@ -43,45 +44,41 @@
 PIK-R Absent/
 ├── backend/
 │   ├── Code.gs                   # Engine REST API Google Apps Script (doGet & doPost)
+│   ├── gas-web/Code.gs           # Versi Google Apps Script terintegrasi
 │   └── SETUP_GUIDE.md            # Panduan langkah-demi-langkah deploy Google Sheets
 ├── frontend/
-│   ├── index.html                # Portal Scanner Absensi Kakak Senior (absensi.pikr-manseku.my.id)
+│   ├── index.html                # Portal Scanner Absensi & Pop-Up Konfirmasi Presensi
 │   ├── dashboard.html            # Dashboard Rekapitulasi Presensi & Ekspor Excel
-│   ├── generator.html            # Generator Kartu Tanda Anggota (KTA) & QR Cetak A4
+│   ├── generator.html            # Generator Kartu Tanda Anggota (KTA) & Plain QR
 │   ├── css/
-│   │   └── style.css             # Tema desain modern PIK-R (Emerald & Slate)
-│   └── js/
-│       ├── config.js             # Konfigurasi URL, Secret Key, & Endpoint
-│       ├── crypto-util.js        # Utilitas HMAC-SHA256 & Web Audio API synthesizer
-│       ├── scanner.js            # Controller kamera, validasi QR, & sinkronisasi
-│       ├── dashboard.js          # Controller tabel, KPI stats, & SheetJS Excel exporter
-│       └── generator.js          # Controller batch card generation & format A4 cetak
+│   │   └── style.css             # Tema desain modern PIK-R, Glassmorphism & 3D buttons
+│   ├── js/
+│   │   ├── config.js             # Konfigurasi URL, Secret Key, Firebase & GAS
+│   │   ├── firebase-init.js      # Inisialisasi Firebase SDK & Analytics
+│   │   ├── crypto-util.js        # Utilitas HMAC-SHA256, Web Audio Synthesizer, & MemberRegistry
+│   │   ├── scanner.js            # Controller kamera, modal konfirmasi presensi, & sinkronisasi
+│   │   ├── dashboard.js          # Controller tabel, KPI stats, & SheetJS Excel exporter
+│   │   └── generator.js          # Controller KTA generator, quick-pick anggota 2026, plain QR
+│   ├── sw.js                     # Service Worker PWA Offline Cache (v4)
+│   └── manifest.json             # Manifest Web App Android/iOS
+├── firebase.json                 # Konfigurasi Firebase Hosting (site: absensi-pik-r)
+├── .firebaserc                   # Target project absensi-pik-r (pik-r-ecosystem)
 └── README.md                     # Dokumentasi utama proyek
 ```
 
 ---
 
-## 🚀 Cara Menjalankan & Menguji Coba di Komputer Lokal
+## 🚀 Deployment Firebase Hosting (Multi-Site)
 
-Kamu bisa membuka halaman web frontend langsung di browser:
-1. Buka folder `frontend/`
-2. Klik ganda file `index.html` (atau gunakan ekstensi Live Server di VS Code / `npx serve frontend`).
-3. Kamu bisa mencoba fitur:
-   - **`generator.html`**: Masukkan nama dan ID, kartu KTA otomatis terbentuk lengkap dengan QR Code bertanda tangan resmi!
-   - **`index.html`**: Arahkan kamera ke QR yang dihasilkan tadi untuk mengetes bunyi *beep* dan pencatatan presensi.
-   - **`dashboard.html`**: Lihat data yang tersimpan dan uji download file Excel `.xlsx`.
+Sistem ini di-deploy di **Firebase Hosting**:
+- **URL Live:** [https://absensi-pik-r.web.app](https://absensi-pik-r.web.app)
+- **Project Firebase:** `absensi-pik-r` (Display Name: `pik-r-ecosystem`)
+- **Site ID:** `absensi-pik-r`
 
----
-
-## 🌐 Panduan Publikasi ke Domain `pikr-manseku.my.id`
-
-1. **Frontend Hosting (Gratis Selamanya):**
-   - Upload folder `frontend/` ke **Cloudflare Pages**, **GitHub Pages**, atau **Vercel**.
-   - Arahkan subdomain di DNS:
-     - `absensi.pikr-manseku.my.id` ➡️ Mengarah ke `frontend/`
-2. **Backend Google Apps Script:**
-   - Ikuti panduan di [`backend/SETUP_GUIDE.md`](file:///c:/Users/HP/Desktop/PIK-R%20Absent/backend/SETUP_GUIDE.md).
-   - Salin URL Web App yang dihasilkan, lalu tempel di [`frontend/js/config.js`](file:///c:/Users/HP/Desktop/PIK-R%20Absent/frontend/js/config.js) pada variabel `GAS_ENDPOINT_URL`.
+Perintah deploy:
+```bash
+firebase deploy --only hosting:absensi-pik-r
+```
 
 ---
 

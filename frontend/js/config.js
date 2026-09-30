@@ -9,8 +9,8 @@ const APP_CONFIG = {
   ORGANIZATION: "PIK-R MAN 1 Muara Enim",
   
   // Base URL Website & Scan
-  SCAN_BASE_URL: "https://absensi.pikr-manseku.my.id",
-  PORTAL_BASE_URL: "https://pikr-manseku.my.id",
+  SCAN_BASE_URL: "https://absensi-pik-r.web.app",
+  PORTAL_BASE_URL: "https://pikr-manseku.web.app",
   
   // Secret Key Tanda Tangan Kriptografis
   SECRET_KEY: "sistem_absensi_PIK-R_2026_programbyhaikal",

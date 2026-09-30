@@ -98,8 +98,11 @@ async function updateSingleCard() {
   // 1. Hitung HMAC Signature
   const sig = await CryptoUtil.generateSignature(id);
 
-  // 2. URL Masa Depan Kartu
-  const qrUrl = `${APP_CONFIG.SCAN_BASE_URL}/id/${id}?sig=${sig}`;
+  // 2. URL Masa Depan Kartu: Arahkan ke Portal Profil Anggota PIK-R
+  // Jika discan kamera umum -> membuka profil anggota resmi di website PIK-R
+  // Jika discan scanner absensi -> otomatis memverifikasi dan membuka pop-up presensi
+  const portalBase = APP_CONFIG.PORTAL_BASE_URL || "https://pikr-manseku.web.app";
+  const qrUrl = `${portalBase}/anggota/${id}?sig=${sig}`;
 
   // 3. Simpan ke Registry Lokal agar Scanner Langsung Mengenali Siswa Ini
   if (typeof MemberRegistry !== "undefined") {
@@ -183,7 +186,8 @@ async function processBatchMembers() {
     if (!id || !nama) continue;
 
     const sig = await CryptoUtil.generateSignature(id);
-    const qrUrl = `${APP_CONFIG.SCAN_BASE_URL}/id/${id}?sig=${sig}`;
+    const portalBase = APP_CONFIG.PORTAL_BASE_URL || "https://pikr-manseku.web.app";
+    const qrUrl = `${portalBase}/anggota/${id}?sig=${sig}`;
 
     const memberObj = { id, nama, kelas, jabatan, sig, qrUrl };
     generatedBatchMembers.push(memberObj);

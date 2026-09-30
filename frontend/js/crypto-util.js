@@ -90,6 +90,11 @@ const CryptoUtil = {
           id = urlObj.searchParams.get("id");
         }
 
+        // Jika pakai query param nisn
+        if (!id && urlObj.searchParams.has("nisn")) {
+          id = urlObj.searchParams.get("nisn");
+        }
+
         // Cek jika format lama: ?fromQRCode=2026-1.PIK-R_${idAnggota}-${token}
         if (!sig && urlObj.searchParams.has("fromQRCode")) {
           const fromQr = urlObj.searchParams.get("fromQRCode");
