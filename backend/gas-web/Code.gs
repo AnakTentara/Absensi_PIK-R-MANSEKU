@@ -45,9 +45,9 @@ function setupDatabase() {
   if (!sheetAttendance) {
     sheetAttendance = ss.insertSheet(CONFIG.SHEET_ATTENDANCE);
     sheetAttendance.appendRow([
-      "ID Log", "Timestamp", "Tanggal", "Jam", "ID Anggota", 
-      "Nama Lengkap", "Kelas", "Status Kehadiran", "Sesi / Kegiatan", 
-      "Petugas Absen", "Catatan"
+      "ID Log", "Timestamp", "Tanggal", "Jam Masuk", "Jam Pulang", "ID Anggota", 
+      "Nama Lengkap", "Kelas", "Status Kehadiran", "Sesi / Agenda", 
+      "Petugas Absen", "Catatan", "Poin Keaktifan"
     ]);
     formatHeader(sheetAttendance);
   }
@@ -134,8 +134,12 @@ function handleApiGet(params) {
     result = handleGetMembers();
   } else if (action === "get_attendance") {
     result = handleGetAttendance(params.tanggal);
+  } else if (action === "get_leaderboard") {
+    result = handleGetLeaderboard();
   } else if (action === "verify_member") {
     result = handleVerifyMember(params.id, params.sig);
+  } else if (action === "submit_permit") {
+    result = handlePermitOnline(params);
   } else {
     result = { status: "error", message: "Action tidak dikenal." };
   }
@@ -145,7 +149,7 @@ function handleApiGet(params) {
 }
 
 /**
- * Handle POST (Submit Absensi dari Scanner)
+ * Handle POST (Submit Absensi dari Scanner & Izin Online)
  */
 function doPost(e) {
   const lock = LockService.getScriptLock();
@@ -168,6 +172,8 @@ function doPost(e) {
 
     if (action === "record_attendance") {
       result = handleRecordAttendance(postData);
+    } else if (action === "submit_permit") {
+      result = handlePermitOnline(postData);
     } else {
       result = { status: "error", message: "Action POST tidak valid." };
     }
@@ -264,12 +270,22 @@ function handleGetAttendance(tanggal) {
     if (rowDate instanceof Date) rowDate = Utilities.formatDate(rowDate, CONFIG.TIMEZONE, "yyyy-MM-dd");
     if (tanggal && rowDate !== tanggal) continue;
     records.push({
-      logId: data[i][0], timestamp: data[i][1], tanggal: rowDate, jam: data[i][3],
-      idAnggota: data[i][4], nama: data[i][5], kelas: data[i][6], status: data[i][7],
-      sesi: data[i][8], petugas: data[i][9], catatan: data[i][10]
+      logId: data[i][0],
+      timestamp: data[i][1],
+      tanggal: rowDate,
+      jamMasuk: data[i][3] || "-",
+      jamPulang: data[i][4] || "-",
+      idAnggota: data[i][5],
+      nama: data[i][6],
+      kelas: data[i][7],
+      status: data[i][8],
+      sesi: data[i][9],
+      petugas: data[i][10],
+      catatan: data[i][11] || "-",
+      poin: data[i][12] || 0
     });
   }
-  return { status: "success", records: records };
+  return { status: "success", count: records.length, records: records };
 }
 
 function handleVerifyMember(id, sig) {
@@ -277,6 +293,12 @@ function handleVerifyMember(id, sig) {
   return { status: "success", valid: true };
 }
 
+/**
+ * Catat Kehadiran Cerdas:
+ * Scan 1 ➡️ Catat Masuk (+10 Poin)
+ * Scan 2 ➡️ Otomatis Catat Pulang (+5 Poin Bonus)
+ * Scan 3+ ➡️ Peringatan Sudah Lengkap
+ */
 function handleRecordAttendance(payload) {
   const id = payload.id;
   const sig = payload.sig;
@@ -302,25 +324,138 @@ function handleRecordAttendance(payload) {
   const now = new Date();
   const dateStr = Utilities.formatDate(now, CONFIG.TIMEZONE, "yyyy-MM-dd");
   const timeStr = Utilities.formatDate(now, CONFIG.TIMEZONE, "HH:mm:ss");
+  const agenda = payload.sesi || "Pertemuan Mingguan";
+  const petugas = payload.petugas || "Kakak Senior";
 
-  // Cek duplikat absen hari ini
   const attendData = sheetAttendance.getDataRange().getValues();
-  for (let a = attendData.length - 1; a >= 1; a--) {
+  let existingRowIndex = -1;
+
+  for (let a = 1; a < attendData.length; a++) {
     let rowDate = attendData[a][2];
     if (rowDate instanceof Date) rowDate = Utilities.formatDate(rowDate, CONFIG.TIMEZONE, "yyyy-MM-dd");
-    if (rowDate === dateStr && String(attendData[a][4]).toUpperCase() === String(id).toUpperCase()) {
-      return { status: "already_recorded", message: "Anggota sudah absen hari ini jam " + attendData[a][3], member: { id, nama, kelas } };
+    const rowId = String(attendData[a][5]).trim().toUpperCase();
+
+    if (rowDate === dateStr && rowId === String(id).trim().toUpperCase()) {
+      existingRowIndex = a + 1; // 1-indexed baris sheet
+      break;
     }
   }
 
-  const logId = "LOG-" + Utilities.formatDate(now, CONFIG.TIMEZONE, "yyyyMMdd-HHmmss");
+  // JIKA BELUM PERNAH SCAN HARI INI ➡️ CATAT SEBAGAI ABSEN MASUK
+  if (existingRowIndex === -1) {
+    const logId = "LOG-" + Utilities.formatDate(now, CONFIG.TIMEZONE, "yyyyMMdd-HHmmss") + "-" + String(id).replace(/[^A-Za-z0-9]/g, "");
+    sheetAttendance.appendRow([
+      logId, now, dateStr, timeStr, "-", id, nama, kelas,
+      "Hadir (Masuk)", agenda, petugas, payload.catatan || "-", 10
+    ]);
+
+    return {
+      status: "success",
+      scanType: "MASUK",
+      message: "Absen MASUK berhasil dicatat! (+10 Poin Keaktifan)",
+      data: { id, nama, kelas, tanggal: dateStr, jamMasuk: timeStr, jamPulang: "-", status: "Hadir (Masuk)", poin: 10, sesi: agenda }
+    };
+  }
+
+  // JIKA SUDAH ABSEN MASUK ➡️ OTOMATIS CATAT SEBAGAI ABSEN PULANG
+  const existingRow = attendData[existingRowIndex - 1];
+  const jamMasuk = existingRow[3];
+  const jamPulang = existingRow[4];
+
+  if (!jamPulang || jamPulang === "-" || jamPulang === "") {
+    sheetAttendance.getRange(existingRowIndex, 5).setValue(timeStr); // Update Jam Pulang
+    sheetAttendance.getRange(existingRowIndex, 9).setValue("Hadir Lengkap"); // Update Status
+    sheetAttendance.getRange(existingRowIndex, 13).setValue(15); // Update Total Poin (10 + 5)
+
+    return {
+      status: "success",
+      scanType: "PULANG",
+      message: "Absen PULANG berhasil dicatat! Kehadiran lengkap (+5 Poin Bonus)",
+      data: { id, nama, kelas, tanggal: dateStr, jamMasuk: jamMasuk, jamPulang: timeStr, status: "Hadir Lengkap", poin: 15, sesi: agenda }
+    };
+  }
+
+  // JIKA SUDAH ABSEN MASUK & PULANG KEDUANYA
+  return {
+    status: "already_completed",
+    message: "Kehadiran anggota ini sudah LENGKAP hari ini!\n• Masuk: " + jamMasuk + "\n• Pulang: " + jamPulang,
+    data: { id, nama, kelas, tanggal: dateStr, jamMasuk: jamMasuk, jamPulang: jamPulang, status: "Hadir Lengkap" }
+  };
+}
+
+/**
+ * Handle Form Izin / Sakit Online oleh Siswa
+ */
+function handlePermitOnline(payload) {
+  const ss = SpreadsheetApp.getActiveSpreadsheet();
+  const sheetMembers = ss.getSheetByName(CONFIG.SHEET_MEMBERS);
+  const sheetAttendance = ss.getSheetByName(CONFIG.SHEET_ATTENDANCE);
+
+  const id = (payload.id || "").trim().toUpperCase();
+  const status = payload.status || "Izin";
+  const alasan = payload.alasan || "Izin tidak dapat hadir";
+  const agenda = payload.sesi || "Pertemuan Mingguan";
+
+  let nama = payload.nama || ("Anggota (" + id + ")");
+  let kelas = payload.kelas || "-";
+
+  if (sheetMembers) {
+    const membersData = sheetMembers.getDataRange().getValues();
+    for (let i = 1; i < membersData.length; i++) {
+      if (String(membersData[i][0]).toUpperCase() === id) {
+        nama = membersData[i][1];
+        kelas = membersData[i][2];
+        break;
+      }
+    }
+  }
+
+  const now = new Date();
+  const dateStr = Utilities.formatDate(now, CONFIG.TIMEZONE, "yyyy-MM-dd");
+  const timeStr = Utilities.formatDate(now, CONFIG.TIMEZONE, "HH:mm:ss");
+  const logId = "PERMIT-" + Utilities.formatDate(now, CONFIG.TIMEZONE, "yyyyMMdd-HHmmss");
+
   sheetAttendance.appendRow([
-    logId, now, dateStr, timeStr, id, nama, kelas,
-    payload.statusKehadiran || "Hadir", payload.sesi || "Pertemuan Rutin", payload.petugas || "Kakak Senior", payload.catatan || "-"
+    logId, now, dateStr, "-", "-", id, nama, kelas,
+    status, agenda, "Permit Online", alasan, 2
   ]);
 
   return {
     status: "success",
-    data: { id, nama, kelas, tanggal: dateStr, jam: timeStr, status: payload.statusKehadiran || "Hadir" }
+    message: "Surat " + status + " Anda berhasil terkirim dan tercatat di sistem presensi.",
+    data: { id, nama, kelas, status, tanggal: dateStr, jam: timeStr }
   };
+}
+
+/**
+ * Hitung Peringkat Keaktifan Anggota (Leaderboard)
+ */
+function handleGetLeaderboard() {
+  const ss = SpreadsheetApp.getActiveSpreadsheet();
+  const sheetAttendance = ss.getSheetByName(CONFIG.SHEET_ATTENDANCE);
+  if (!sheetAttendance) return { status: "error", message: "Sheet tidak ada" };
+
+  const data = sheetAttendance.getDataRange().getValues();
+  const pointsMap = {};
+
+  for (let i = 1; i < data.length; i++) {
+    const id = String(data[i][5]).trim().toUpperCase();
+    const nama = data[i][6];
+    const kelas = data[i][7];
+    const status = String(data[i][8]);
+    const poin = Number(data[i][12]) || 0;
+
+    if (!id || id === "-") continue;
+
+    if (!pointsMap[id]) {
+      pointsMap[id] = { id, nama, kelas, totalPoin: 0, hadirCount: 0, izinCount: 0 };
+    }
+
+    pointsMap[id].totalPoin += poin;
+    if (status.toLowerCase().includes("hadir")) pointsMap[id].hadirCount++;
+    else if (status.toLowerCase().includes("izin") || status.toLowerCase().includes("sakit")) pointsMap[id].izinCount++;
+  }
+
+  const leaderboard = Object.values(pointsMap).sort((a, b) => b.totalPoin - a.totalPoin);
+  return { status: "success", leaderboard: leaderboard };
 }

@@ -47,99 +47,175 @@
         <button id="btnExportCsv" class="btn btn-secondary btn-sm">
           📄 Download CSV
         </button>
+        <button id="btnPrintBeritaAcara" class="btn btn-primary btn-sm">
+          🖨️ Cetak Berita Acara (PDF)
+        </button>
       </div>
     </div>
 
-    <!-- Stats Grid -->
-    <div class="stats-grid">
-      <div class="stat-card">
-        <div class="stat-icon teal">👥</div>
-        <div class="stat-meta">
-          <h3 id="statTotalAnggota">0</h3>
-          <p>Total Anggota</p>
+    <!-- View Mode Tabs -->
+    <div class="no-print" style="display: flex; gap: 0.5rem; margin-bottom: 1.25rem;">
+      <button id="btnTabRecords" class="btn btn-primary btn-sm">📋 Daftar Kehadiran (Masuk & Pulang)</button>
+      <button id="btnTabLeaderboard" class="btn btn-secondary btn-sm">🏆 Leaderboard Poin Keaktifan</button>
+    </div>
+
+    <!-- Section 1: Daftar Kehadiran -->
+    <div id="sectionRecords">
+      <!-- Stats Grid -->
+      <div class="stats-grid">
+        <div class="stat-card">
+          <div class="stat-icon teal">👥</div>
+          <div class="stat-meta">
+            <h3 id="statTotalAnggota">0</h3>
+            <p>Total Anggota</p>
+          </div>
+        </div>
+        <div class="stat-card">
+          <div class="stat-icon green">✓</div>
+          <div class="stat-meta">
+            <h3 id="statHadir">0</h3>
+            <p>Hadir Hari Ini</p>
+          </div>
+        </div>
+        <div class="stat-card">
+          <div class="stat-icon blue">✉️</div>
+          <div class="stat-meta">
+            <h3 id="statIzin">0</h3>
+            <p>Izin / Sakit</p>
+          </div>
+        </div>
+        <div class="stat-card">
+          <div class="stat-icon amber">⏳</div>
+          <div class="stat-meta">
+            <h3 id="statBelum">0</h3>
+            <p>Belum Hadir</p>
+          </div>
         </div>
       </div>
-      <div class="stat-card">
-        <div class="stat-icon green">✓</div>
-        <div class="stat-meta">
-          <h3 id="statHadir">0</h3>
-          <p>Hadir Hari Ini</p>
+
+      <!-- Filter Card -->
+      <div class="card no-print" style="margin-bottom: 1.5rem; padding: 1.1rem 1.5rem;">
+        <div style="display: flex; gap: 1rem; flex-wrap: wrap; align-items: flex-end;">
+          <div style="flex: 1; min-width: 180px;">
+            <label style="font-size: 0.75rem; font-weight: 600; color: var(--text-muted); display: block; margin-bottom: 0.3rem;">
+              Pilih Tanggal Presensi
+            </label>
+            <input type="date" id="filterDate" style="width: 100%; padding: 0.55rem 0.8rem; border: 1px solid var(--border); border-radius: var(--radius-sm); font-size: 0.85rem;">
+          </div>
+          <div style="flex: 1; min-width: 180px;">
+            <label style="font-size: 0.75rem; font-weight: 600; color: var(--text-muted); display: block; margin-bottom: 0.3rem;">
+              Filter Status Kehadiran
+            </label>
+            <select id="filterStatus" style="width: 100%; padding: 0.55rem 0.8rem; border: 1px solid var(--border); border-radius: var(--radius-sm); font-size: 0.85rem;">
+              <option value="ALL">Semua Status</option>
+              <option value="Hadir">Hadir (Masuk/Lengkap)</option>
+              <option value="Izin">Izin</option>
+              <option value="Sakit">Sakit</option>
+            </select>
+          </div>
+          <div style="flex: 1.5; min-width: 220px;">
+            <label style="font-size: 0.75rem; font-weight: 600; color: var(--text-muted); display: block; margin-bottom: 0.3rem;">
+              Cari Nama / ID / Kelas
+            </label>
+            <input type="text" id="filterSearch" placeholder="Ketik nama atau kelas..." style="width: 100%; padding: 0.55rem 0.8rem; border: 1px solid var(--border); border-radius: var(--radius-sm); font-size: 0.85rem;">
+          </div>
         </div>
       </div>
-      <div class="stat-card">
-        <div class="stat-icon blue">✉️</div>
-        <div class="stat-meta">
-          <h3 id="statIzin">0</h3>
-          <p>Izin / Sakit</p>
+
+      <!-- Table of Records -->
+      <div class="card">
+        <div class="card-header no-print">
+          <h3 class="card-title">📋 Rincian Kehadiran</h3>
+          <span id="recordCountBadge" class="badge badge-info">0 Data Ditemukan</span>
         </div>
-      </div>
-      <div class="stat-card">
-        <div class="stat-icon amber">⏳</div>
-        <div class="stat-meta">
-          <h3 id="statBelum">0</h3>
-          <p>Belum Hadir</p>
+
+        <div class="table-responsive">
+          <table id="attendanceTable">
+            <thead>
+              <tr>
+                <th>Tanggal</th>
+                <th>Jam Masuk</th>
+                <th>Jam Pulang</th>
+                <th>ID Anggota</th>
+                <th>Nama Lengkap</th>
+                <th>Kelas</th>
+                <th>Status</th>
+                <th>Agenda / Sesi</th>
+                <th>Poin</th>
+                <th>Petugas</th>
+                <th>Catatan</th>
+              </tr>
+            </thead>
+            <tbody id="attendanceTbody">
+              <tr>
+                <td colspan="11" style="text-align: center; padding: 2.5rem; color: var(--text-muted);">
+                  Memuat data dari Google Apps Script...
+                </td>
+              </tr>
+            </tbody>
+          </table>
         </div>
       </div>
     </div>
 
-    <!-- Filter Card -->
-    <div class="card" style="margin-bottom: 1.5rem; padding: 1.1rem 1.5rem;">
-      <div style="display: flex; gap: 1rem; flex-wrap: wrap; align-items: flex-end;">
-        <div style="flex: 1; min-width: 180px;">
-          <label style="font-size: 0.75rem; font-weight: 600; color: var(--text-muted); display: block; margin-bottom: 0.3rem;">
-            Pilih Tanggal Presensi
-          </label>
-          <input type="date" id="filterDate" style="width: 100%; padding: 0.55rem 0.8rem; border: 1px solid var(--border); border-radius: var(--radius-sm); font-size: 0.85rem;">
+    <!-- Section 2: Leaderboard Poin Keaktifan -->
+    <div id="sectionLeaderboard" style="display: none;">
+      <div class="card" style="margin-bottom: 1.5rem;">
+        <div class="card-header">
+          <h3 class="card-title">🏆 Top Peringkat Keaktifan Anggota PIK-R MANSEKU</h3>
+          <span class="badge badge-success">Poin Kehadiran & Event</span>
         </div>
-        <div style="flex: 1; min-width: 180px;">
-          <label style="font-size: 0.75rem; font-weight: 600; color: var(--text-muted); display: block; margin-bottom: 0.3rem;">
-            Filter Status Kehadiran
-          </label>
-          <select id="filterStatus" style="width: 100%; padding: 0.55rem 0.8rem; border: 1px solid var(--border); border-radius: var(--radius-sm); font-size: 0.85rem;">
-            <option value="ALL">Semua Status</option>
-            <option value="Hadir">Hadir</option>
-            <option value="Izin">Izin</option>
-            <option value="Sakit">Sakit</option>
-          </select>
-        </div>
-        <div style="flex: 1.5; min-width: 220px;">
-          <label style="font-size: 0.75rem; font-weight: 600; color: var(--text-muted); display: block; margin-bottom: 0.3rem;">
-            Cari Nama / ID / Kelas
-          </label>
-          <input type="text" id="filterSearch" placeholder="Ketik nama atau kelas..." style="width: 100%; padding: 0.55rem 0.8rem; border: 1px solid var(--border); border-radius: var(--radius-sm); font-size: 0.85rem;">
+        <p style="font-size: 0.85rem; color: var(--text-muted); margin-bottom: 1rem;">
+          Poin dihitung otomatis dari kehadiran (+10 Masuk, +5 Pulang Lengkap, +2 Izin Resmi).
+        </p>
+
+        <div class="table-responsive">
+          <table>
+            <thead>
+              <tr>
+                <th style="width: 90px;">Peringkat</th>
+                <th>ID Anggota</th>
+                <th>Nama Siswa</th>
+                <th>Kelas</th>
+                <th>Kehadiran</th>
+                <th>Total Poin</th>
+                <th>Status Apresiasi</th>
+              </tr>
+            </thead>
+            <tbody id="leaderboardTbody">
+              <tr><td colspan="7" style="text-align: center; padding: 2rem;">Memuat peringkat...</td></tr>
+            </tbody>
+          </table>
         </div>
       </div>
     </div>
 
-    <!-- Table of Records -->
-    <div class="card">
-      <div class="card-header">
-        <h3 class="card-title">📋 Rincian Kehadiran</h3>
-        <span id="recordCountBadge" class="badge badge-info">0 Data Ditemukan</span>
+    <!-- Berita Acara Print Layout (KOP Resmi MANSEKU) -->
+    <div id="beritaAcaraPrintArea" style="display: none; padding: 2rem; background: white; color: black;">
+      <div style="text-align: center; border-bottom: 2px solid black; padding-bottom: 1rem; margin-bottom: 1.5rem;">
+        <h2 style="font-size: 1.25rem; font-weight: bold; text-transform: uppercase;">PUSAT INFORMASI DAN KONSELING REMAJA (PIK-R)</h2>
+        <h3 style="font-size: 1.1rem; font-weight: bold;">MADRASAH ALIYAH NEGERI (MAN) 1 MUARA ENIM</h3>
+        <p style="font-size: 0.8rem; color: #333;">Jalan Madrasah No. 1, Muara Enim, Sumatera Selatan • Laporan Presensi Resmi</p>
       </div>
 
-      <div class="table-responsive">
-        <table id="attendanceTable">
-          <thead>
-            <tr>
-              <th>Waktu</th>
-              <th>ID Anggota</th>
-              <th>Nama Lengkap</th>
-              <th>Kelas</th>
-              <th>Status</th>
-              <th>Kegiatan / Sesi</th>
-              <th>Petugas Scan</th>
-              <th>Catatan</th>
-            </tr>
-          </thead>
-          <tbody id="attendanceTbody">
-            <tr>
-              <td colspan="8" style="text-align: center; padding: 2.5rem; color: var(--text-muted);">
-                Memuat data dari Google Apps Script...
-              </td>
-            </tr>
-          </tbody>
-        </table>
+      <h4 style="text-align: center; font-size: 1.05rem; text-decoration: underline; margin-bottom: 1rem;">BERITA ACARA KEHADIRAN KEGIATAN</h4>
+      <p style="font-size: 0.85rem; line-height: 1.6; margin-bottom: 1rem;">
+        Pada hari ini <strong id="printDateString">-</strong>, telah dilaksanakan kegiatan PIK-R MANSEKU dengan agenda: <strong id="printAgendaString">Pertemuan Rutin</strong>. Berdasarkan pencatatan sistem presensi digital, berikut rincian kehadiran:
+      </p>
+
+      <div style="margin-bottom: 1.5rem;" id="printTableContainer"></div>
+
+      <div style="display: flex; justify-content: space-between; margin-top: 3rem; page-break-inside: avoid;">
+        <div style="text-align: center; width: 220px;">
+          <p style="font-size: 0.85rem;">Mengetahui,<br><strong>Pembina PIK-R MANSEKU</strong></p>
+          <div style="height: 60px;"></div>
+          <p style="font-size: 0.85rem; font-weight: bold;">( .................................................. )</p>
+        </div>
+        <div style="text-align: center; width: 220px;">
+          <p style="font-size: 0.85rem;">Muara Enim, <span id="printSignDate">-</span><br><strong>Ketua PIK-R MANSEKU</strong></p>
+          <div style="height: 60px;"></div>
+          <p style="font-size: 0.85rem; font-weight: bold;">Muhammad Haikal</p>
+        </div>
       </div>
     </div>
 

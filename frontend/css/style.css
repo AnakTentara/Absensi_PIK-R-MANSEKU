@@ -644,4 +644,16 @@ tbody tr:hover {
     -webkit-print-color-adjust: exact !important;
     print-color-adjust: exact !important;
   }
+
+  /* Berita Acara Print Rules */
+  body.printing-berita-acara #sectionRecords,
+  body.printing-berita-acara #sectionLeaderboard,
+  body.printing-berita-acara .app-header,
+  body.printing-berita-acara .toast-container {
+    display: none !important;
+  }
+  body.printing-berita-acara #beritaAcaraPrintArea {
+    display: block !important;
+  }
 }
+

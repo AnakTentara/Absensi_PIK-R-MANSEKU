@@ -52,8 +52,20 @@ function setupEventListeners() {
     });
   }
 
-  if (window.inputSesi) {
-    window.inputSesi.addEventListener("change", (e) => {
+  // Setup Agenda Dropdown & Custom Text
+  const selAgenda = document.getElementById("selectAgenda");
+  const inputCustom = document.getElementById("inputSesiCustom");
+  if (selAgenda && inputCustom) {
+    selAgenda.addEventListener("change", (e) => {
+      if (e.target.value === "__CUSTOM__") {
+        inputCustom.style.display = "block";
+        inputCustom.focus();
+      } else {
+        inputCustom.style.display = "none";
+        localStorage.setItem(APP_CONFIG.LOCAL_STORAGE_KEYS.LAST_SESSION, e.target.value);
+      }
+    });
+    inputCustom.addEventListener("input", (e) => {
       localStorage.setItem(APP_CONFIG.LOCAL_STORAGE_KEYS.LAST_SESSION, e.target.value.trim());
     });
   }
@@ -72,6 +84,18 @@ function setupEventListeners() {
     modalManual.style.display = "none";
   });
   document.getElementById("btnSubmitManual").addEventListener("click", handleManualSubmit);
+
+  // Modal Form Izin Online
+  const modalPermit = document.getElementById("permitModal");
+  const btnOpenPermit = document.getElementById("btnOpenPermit");
+  if (btnOpenPermit && modalPermit) {
+    btnOpenPermit.addEventListener("click", () => { modalPermit.style.display = "flex"; });
+    document.getElementById("btnClosePermit").addEventListener("click", () => { modalPermit.style.display = "none"; });
+    document.getElementById("btnSubmitPermit").addEventListener("click", handleSubmitPermit);
+  }
+
+  // Setup PWA Service Worker & Install Prompt
+  setupPwaFeatures();
 
   // Modal GAS Config
   const modalGas = document.getElementById("gasConfigModal");
@@ -233,16 +257,13 @@ async function onScanSuccess(decodedText) {
     return;
   }
 
-  // 3. Tanda Tangan Valid! Mainkan Audio Beep Sukses
-  CryptoUtil.Sound.playSuccess();
-  triggerHaptic([60]);
-
+  // 3. Tanda Tangan Valid!
   // 4. Catat Kehadiran ke Backend
   await recordAttendance({
     id: parsed.id,
     sig: parsed.sig,
     petugas: (window.inputPetugas ? window.inputPetugas.value.trim() : "") || "Kakak Senior",
-    sesi: (window.inputSesi ? window.inputSesi.value.trim() : "") || "Pertemuan Rutin",
+    sesi: getCurrentAgenda(),
     statusKehadiran: "Hadir"
   });
 }
@@ -252,7 +273,20 @@ function onScanFailure(error) {
 }
 
 /**
- * Kirim Absensi ke Google Apps Script / Simpan Offline
+ * Dapatkan Nama Agenda yang Dipilih (Preset atau Ketik Sendiri)
+ */
+function getCurrentAgenda() {
+  const sel = document.getElementById("selectAgenda");
+  if (!sel) return "Pertemuan Mingguan";
+  if (sel.value === "__CUSTOM__") {
+    const custom = document.getElementById("inputSesiCustom").value.trim();
+    return custom || "Pertemuan Khusus PIK-R";
+  }
+  return sel.value;
+}
+
+/**
+ * Kirim Absensi ke Google Apps Script (Auto Check-In / Check-Out)
  */
 async function recordAttendance(payload) {
   displayScanResult({
@@ -277,28 +311,39 @@ async function recordAttendance(payload) {
       catatan: payload.catatan || "-"
     };
 
-    // Cek apakah URL GAS sudah dikonfigurasi nyata atau masih placeholder
     const isMock = APP_CONFIG.GAS_ENDPOINT_URL.includes("GANTI_DENGAN_DEPLOYMENT_ID");
-
     let responseData = null;
 
     if (isMock) {
       // Mock Fallback jika user belum memasang ID Apps Script nyata
       await new Promise(r => setTimeout(r, 600));
-      responseData = {
-        status: "success",
-        message: "Absensi tersimpan di sistem lokal (Demo Mode)",
-        data: {
-          id: payload.id,
-          nama: "Anggota (" + payload.id + ")",
-          kelas: "Kelas Aktif",
-          jam: timeStr,
-          status: payload.statusKehadiran,
-          sesi: payload.sesi
-        }
-      };
+      // Cek apakah di local sudah ada hari ini
+      const existing = todayLogs.find(l => l.id === payload.id);
+      if (!existing) {
+        responseData = {
+          status: "success",
+          scanType: "MASUK",
+          message: "Absen MASUK berhasil dicatat! (+10 Poin)",
+          data: { id: payload.id, nama: "Anggota (" + payload.id + ")", kelas: "XI IPA 1", jamMasuk: timeStr, jamPulang: "-", status: "Hadir (Masuk)", poin: 10, sesi: payload.sesi }
+        };
+      } else if (existing.jamPulang === "-" || !existing.jamPulang) {
+        existing.jamPulang = timeStr;
+        existing.status = "Hadir Lengkap";
+        existing.poin = 15;
+        responseData = {
+          status: "success",
+          scanType: "PULANG",
+          message: "Absen PULANG berhasil dicatat! Kehadiran lengkap (+5 Poin Bonus)",
+          data: { id: payload.id, nama: existing.nama, kelas: existing.kelas, jamMasuk: existing.jamMasuk || existing.jam, jamPulang: timeStr, status: "Hadir Lengkap", poin: 15, sesi: payload.sesi }
+        };
+      } else {
+        responseData = {
+          status: "already_completed",
+          message: `Kehadiran ${existing.nama} sudah LENGKAP hari ini!\n• Masuk: ${existing.jamMasuk || existing.jam}\n• Pulang: ${existing.jamPulang}`,
+          data: existing
+        };
+      }
     } else {
-      // Kirim ke Google Apps Script Backend
       const res = await fetch(APP_CONFIG.GAS_ENDPOINT_URL, {
         method: "POST",
         headers: { "Content-Type": "text/plain;charset=utf-8" },
@@ -309,39 +354,57 @@ async function recordAttendance(payload) {
 
     if (responseData.status === "success") {
       const data = responseData.data || {};
+      const scanType = responseData.scanType || "MASUK";
+
+      if (scanType === "PULANG") {
+        CryptoUtil.Sound.playCheckoutFanfare();
+        triggerHaptic([60, 40, 60, 40, 100]);
+      } else {
+        CryptoUtil.Sound.playSuccess();
+        triggerHaptic([60]);
+      }
+
       const record = {
         id: data.id || payload.id,
         nama: data.nama || payload.id,
         kelas: data.kelas || "-",
-        jam: data.jam || timeStr,
-        status: data.status || payload.statusKehadiran,
-        petugas: payload.petugas
+        jamMasuk: data.jamMasuk || timeStr,
+        jamPulang: data.jamPulang || "-",
+        status: data.status || (scanType === "PULANG" ? "Hadir Lengkap" : "Hadir (Masuk)"),
+        petugas: payload.petugas,
+        poin: data.poin || (scanType === "PULANG" ? 15 : 10)
       };
 
       addLogItem(record);
       displayScanResult({
         status: "success",
+        scanType: scanType,
         id: record.id,
         nama: record.nama,
         kelas: record.kelas,
-        jam: record.jam,
-        message: "Absensi BERHASIL dicatat ke Google Sheets!"
+        jamMasuk: record.jamMasuk,
+        jamPulang: record.jamPulang,
+        poin: record.poin,
+        message: responseData.message || (scanType === "PULANG" ? "Absen PULANG berhasil dicatat!" : "Absen MASUK berhasil dicatat!")
       });
-      showToast(`Berhasil absen: ${record.nama}`, "success");
+      showToast(responseData.message || `Berhasil: ${record.nama}`, "success");
 
-    } else if (responseData.status === "already_recorded") {
+    } else if (responseData.status === "already_completed" || responseData.status === "already_recorded") {
       CryptoUtil.Sound.playWarning();
       triggerHaptic([80, 50, 80]);
       
-      const member = responseData.member || {};
+      const member = responseData.data || responseData.member || {};
       displayScanResult({
         status: "warning",
         id: member.id || payload.id,
         nama: member.nama || payload.id,
         kelas: member.kelas || "-",
-        message: responseData.message || "Anggota ini SUDAH ABSEN sebelumnya hari ini."
+        jamMasuk: member.jamMasuk || "-",
+        jamPulang: member.jamPulang || "-",
+        poin: member.poin || 15,
+        message: responseData.message || "Anggota ini sudah absen lengkap hari ini."
       });
-      showToast("Sudah absen sebelumnya!", "warning");
+      showToast("Sudah absen lengkap hari ini!", "warning");
 
     } else {
       CryptoUtil.Sound.playError();
@@ -357,8 +420,6 @@ async function recordAttendance(payload) {
 
   } catch (netErr) {
     console.warn("Gagal terhubung ke Google Apps Script, menyimpan ke antrean offline:", netErr);
-    
-    // Offline Storage Backup
     saveToOfflineQueue(payload, timeStr);
     
     displayScanResult({
@@ -366,7 +427,8 @@ async function recordAttendance(payload) {
       id: payload.id,
       nama: "Tersimpan Offline",
       kelas: "Koneksi Terputus",
-      jam: timeStr,
+      jamMasuk: timeStr,
+      jamPulang: "-",
       message: "Data diamankan di memori HP. Otomatis disinkronkan saat sinyal pulih."
     });
     showToast("Disimpan offline (akan sync saat online)", "warning");
@@ -385,36 +447,117 @@ function displayScanResult(info) {
   const resKelas = document.getElementById("resKelas");
   const resAvatar = document.getElementById("resAvatar");
   const resMessage = document.getElementById("resMessage");
-  const resTime = document.getElementById("resTime");
-  const resStatusDetail = document.getElementById("resStatusDetail");
+  const resPoints = document.getElementById("resPoints");
+  const resJamMasuk = document.getElementById("resJamMasuk");
+  const resJamPulang = document.getElementById("resJamPulang");
 
   resNama.textContent = info.nama;
   resId.textContent = info.id;
   resKelas.textContent = info.kelas;
   resMessage.textContent = info.message;
-  resTime.textContent = info.jam || new Date().toLocaleTimeString("id-ID", { hour: "2-digit", minute: "2-digit" }) + " WIB";
   resAvatar.textContent = info.nama ? info.nama.charAt(0).toUpperCase() : "P";
 
+  if (resJamMasuk) resJamMasuk.textContent = `Masuk: ${info.jamMasuk || "-"}`;
+  if (resJamPulang) resJamPulang.textContent = `Pulang: ${info.jamPulang || "-"}`;
+
   if (info.status === "success") {
-    resBadge.className = "badge badge-success";
-    resBadge.textContent = "Hadir ✓";
-    resStatusDetail.textContent = "Status: Hadir Resmi";
-    resStatusDetail.style.color = "var(--primary)";
+    if (info.scanType === "PULANG") {
+      resBadge.className = "badge badge-info";
+      resBadge.textContent = "Pulang ✓";
+      if (resPoints) resPoints.textContent = `+5 Poin (Total: ${info.poin || 15})`;
+    } else {
+      resBadge.className = "badge badge-success";
+      resBadge.textContent = "Masuk ✓";
+      if (resPoints) resPoints.textContent = `+10 Poin`;
+    }
   } else if (info.status === "warning") {
     resBadge.className = "badge badge-warning";
-    resBadge.textContent = "Sudah Absen";
-    resStatusDetail.textContent = "Status: Duplikat Hari Ini";
-    resStatusDetail.style.color = "var(--warning)";
+    resBadge.textContent = "Lengkap ✓";
+    if (resPoints) resPoints.textContent = `15 Poin`;
   } else if (info.status === "invalid" || info.status === "error") {
     resBadge.className = "badge badge-danger";
     resBadge.textContent = "Ditolak ✕";
-    resStatusDetail.textContent = "Status: Tidak Sah";
-    resStatusDetail.style.color = "var(--danger)";
+    if (resPoints) resPoints.textContent = `0 Poin`;
   } else if (info.status === "offline_saved") {
     resBadge.className = "badge badge-info";
-    resBadge.textContent = "Disimpan Offline ☁️";
-    resStatusDetail.textContent = "Status: Menunggu Sinkronisasi";
-    resStatusDetail.style.color = "var(--secondary)";
+    resBadge.textContent = "Offline ☁️";
+    if (resPoints) resPoints.textContent = `+10 Poin (Pending)`;
+  }
+}
+
+/**
+ * Handle Form Izin / Sakit Online oleh Siswa
+ */
+async function handleSubmitPermit() {
+  const id = document.getElementById("permitId").value.trim().toUpperCase();
+  const kelas = document.getElementById("permitKelas").value.trim();
+  const status = document.getElementById("permitStatus").value;
+  const alasan = document.getElementById("permitAlasan").value.trim();
+
+  if (!id) return showToast("Masukkan ID atau Nama Siswa.", "warning");
+  if (!alasan) return showToast("Masukkan alasan izin/sakit.", "warning");
+
+  const modalPermit = document.getElementById("permitModal");
+  showToast("Mengirimkan surat konfirmasi...", "info");
+
+  try {
+    const isMock = APP_CONFIG.GAS_ENDPOINT_URL.includes("GANTI_DENGAN_DEPLOYMENT_ID");
+    if (isMock) {
+      await new Promise(r => setTimeout(r, 500));
+      showToast("Surat izin berhasil dicatat di sistem lokal!", "success");
+    } else {
+      const res = await fetch(APP_CONFIG.GAS_ENDPOINT_URL, {
+        method: "POST",
+        headers: { "Content-Type": "text/plain;charset=utf-8" },
+        body: JSON.stringify({
+          action: "submit_permit",
+          id: id,
+          nama: id,
+          kelas: kelas,
+          status: status,
+          alasan: alasan,
+          sesi: getCurrentAgenda()
+        })
+      });
+      const data = await res.json();
+      showToast(data.message || "Izin berhasil tercatat!", "success");
+    }
+
+    modalPermit.style.display = "none";
+    document.getElementById("permitId").value = "";
+    document.getElementById("permitAlasan").value = "";
+  } catch (e) {
+    showToast("Gagal mengirim izin. Periksa koneksi internet.", "error");
+  }
+}
+
+/**
+ * Setup PWA Features (Service Worker & Install Button)
+ */
+function setupPwaFeatures() {
+  let deferredPrompt = null;
+  window.addEventListener("beforeinstallprompt", (e) => {
+    e.preventDefault();
+    deferredPrompt = e;
+    const btn = document.getElementById("btnInstallPwa");
+    if (btn) {
+      btn.style.display = "inline-flex";
+      btn.addEventListener("click", async () => {
+        if (deferredPrompt) {
+          deferredPrompt.prompt();
+          const { outcome } = await deferredPrompt.userChoice;
+          if (outcome === "accepted") {
+            btn.style.display = "none";
+            showToast("Aplikasi berhasil di-install ke layar utama HP!", "success");
+          }
+          deferredPrompt = null;
+        }
+      });
+    }
+  });
+
+  if ("serviceWorker" in navigator) {
+    navigator.serviceWorker.register("./sw.js").catch(console.warn);
   }
 }
 

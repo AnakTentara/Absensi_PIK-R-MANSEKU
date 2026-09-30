@@ -3,7 +3,9 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+  <meta name="theme-color" content="#ea580c">
   <title>Portal Absensi - PIK-R MANSEKU</title>
+  <link rel="manifest" href="manifest.json">
   <link rel="stylesheet" href="css/style.css">
   <!-- HTML5 QR Code Scanner Library -->
   <script src="https://unpkg.com/html5-qrcode@2.3.8/html5-qrcode.min.js"></script>
@@ -21,6 +23,7 @@
         </div>
       </a>
       <nav class="nav-links">
+        <button id="btnInstallPwa" class="nav-btn" style="display: none; background: var(--primary-light); color: var(--primary-dark); border: none; cursor: pointer;">📲 Install App</button>
         <a href="index.html" class="nav-btn active">📷 Scanner</a>
         <a href="dashboard.html" class="nav-btn">📊 Rekap Data</a>
         <a href="generator.html" class="nav-btn">🪪 Cetak Kartu</a>
@@ -59,6 +62,9 @@
           <button id="btnManualInput" class="btn btn-secondary">
             ⌨️ Absen Manual
           </button>
+          <button id="btnOpenPermit" class="btn btn-secondary">
+            ✉️ Form Izin Online
+          </button>
         </div>
 
         <!-- Info Sesi & Petugas -->
@@ -69,19 +75,26 @@
             </label>
             <input type="text" id="inputPetugas" class="btn-secondary" style="width: 100%; padding: 0.5rem 0.8rem; border-radius: var(--radius-sm); font-size: 0.85rem;" placeholder="Nama Kakak Senior...">
           </div>
-          <div style="flex: 1; min-width: 140px;">
+          <div style="flex: 1.3; min-width: 170px;">
             <label style="font-size: 0.75rem; color: var(--text-muted); font-weight: 600; display: block; margin-bottom: 0.2rem;">
-              Agenda / Sesi Hari Ini
+              Agenda / Sesi Kegiatan
             </label>
-            <input type="text" id="inputSesi" class="btn-secondary" style="width: 100%; padding: 0.5rem 0.8rem; border-radius: var(--radius-sm); font-size: 0.85rem;" value="Pertemuan Rutin PIK-R">
+            <select id="selectAgenda" style="width: 100%; padding: 0.5rem 0.8rem; border-radius: var(--radius-sm); font-size: 0.85rem; border: 1px solid var(--border); background: var(--surface);">
+              <option value="Pertemuan Mingguan">📅 Pertemuan Mingguan (Default)</option>
+              <option value="Penyuluhan Genre & Kesehatan">🩺 Penyuluhan Genre & Kesehatan</option>
+              <option value="LDKS & Diklat PIK-R">🏕️ LDKS & Diklat PIK-R</option>
+              <option value="Bakti Sosial & Kampanye Remaja">🤝 Bakti Sosial & Kampanye</option>
+              <option value="__CUSTOM__">✍️ Ketik Sendiri...</option>
+            </select>
+            <input type="text" id="inputSesiCustom" style="display: none; width: 100%; margin-top: 0.4rem; padding: 0.45rem 0.8rem; border-radius: var(--radius-sm); font-size: 0.82rem; border: 1px solid var(--border);" placeholder="Ketik nama agenda kegiatan...">
           </div>
         </div>
 
         <!-- Hasil Scan Terakhir (Slide Card) -->
         <div id="scanResultCard" class="result-card">
           <div style="display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 0.5rem;">
-            <span id="resBadge" class="badge badge-success">Terverifikasi</span>
-            <span id="resTime" style="font-size: 0.75rem; color: var(--text-muted);">16:30 WIB</span>
+            <span id="resBadge" class="badge badge-success">Masuk ✓</span>
+            <span id="resPoints" class="badge badge-info" style="font-size: 0.75rem;">+10 Poin</span>
           </div>
 
           <div class="member-profile-preview">
@@ -89,14 +102,14 @@
             <div class="member-info">
               <h3 id="resNama">Nama Anggota</h3>
               <p><span id="resId">PIKR-2026-001</span> • <span id="resKelas">XI IPA 1</span></p>
-              <p id="resStatusDetail" style="margin-top: 0.2rem; font-weight: 600; color: var(--primary);">
-                Status: Hadir
-              </p>
+              <div id="resTimesBlock" style="margin-top: 0.3rem; font-size: 0.78rem; color: var(--text-muted);">
+                <span id="resJamMasuk">Masuk: -</span> • <span id="resJamPulang">Pulang: -</span>
+              </div>
             </div>
           </div>
 
           <div id="resMessage" style="font-size: 0.85rem; padding: 0.5rem 0.75rem; background: var(--surface); border-radius: var(--radius-sm); margin-bottom: 0.75rem; border: 1px solid var(--border);">
-            Absensi berhasil dicatat ke Google Sheets!
+            Absen MASUK berhasil dicatat! (+10 Poin)
           </div>
 
           <div style="display: flex; gap: 0.5rem;">
@@ -170,6 +183,44 @@
         </div>
         <button id="btnSubmitManual" class="btn btn-primary" style="margin-top: 0.5rem;">
           Catat Absen Manual
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Modal Form Izin Online -->
+  <div id="permitModal" style="display: none; position: fixed; inset: 0; background: rgba(0,0,0,0.5); z-index: 100; align-items: center; justify-content: center; padding: 1rem;">
+    <div class="card" style="width: 100%; max-width: 440px; animation: slideUp 0.25s ease;">
+      <div class="card-header">
+        <h3 class="card-title">✉️ Form Izin / Sakit Online</h3>
+        <button id="btnClosePermit" style="background: none; border: none; font-size: 1.25rem; cursor: pointer;">✕</button>
+      </div>
+      <p style="font-size: 0.8rem; color: var(--text-muted); margin-bottom: 0.75rem;">
+        Konfirmasi izin atau sakit secara resmi agar tetap tercatat di sistem presensi.
+      </p>
+      
+      <div style="display: flex; flex-direction: column; gap: 0.75rem;">
+        <div>
+          <label style="font-size: 0.75rem; font-weight: 600;">ID Anggota / Nama Siswa</label>
+          <input type="text" id="permitId" placeholder="Contoh: PIKR-2026-001 atau Nama" style="width: 100%; padding: 0.6rem; border: 1px solid var(--border); border-radius: var(--radius-sm);">
+        </div>
+        <div>
+          <label style="font-size: 0.75rem; font-weight: 600;">Kelas</label>
+          <input type="text" id="permitKelas" placeholder="Contoh: XI IPA 1" style="width: 100%; padding: 0.6rem; border: 1px solid var(--border); border-radius: var(--radius-sm);">
+        </div>
+        <div>
+          <label style="font-size: 0.75rem; font-weight: 600;">Kategori</label>
+          <select id="permitStatus" style="width: 100%; padding: 0.6rem; border: 1px solid var(--border); border-radius: var(--radius-sm);">
+            <option value="Izin">Izin (Ada Keperluan / Kegiatan Sekolah)</option>
+            <option value="Sakit">Sakit</option>
+          </select>
+        </div>
+        <div>
+          <label style="font-size: 0.75rem; font-weight: 600;">Alasan Lengkap</label>
+          <textarea id="permitAlasan" rows="2" placeholder="Contoh: Mengikuti lomba olimpiade madrasah..." style="width: 100%; padding: 0.6rem; border: 1px solid var(--border); border-radius: var(--radius-sm); font-size: 0.85rem;"></textarea>
+        </div>
+        <button id="btnSubmitPermit" class="btn btn-primary" style="margin-top: 0.5rem;">
+          🚀 Kirim Surat Izin / Sakit
         </button>
       </div>
     </div>

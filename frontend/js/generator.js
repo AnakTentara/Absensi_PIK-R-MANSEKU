@@ -88,6 +88,15 @@ async function updateSingleCard() {
 
 function setupBatchGenerator() {
   document.getElementById("btnProcessBatch").addEventListener("click", processBatchMembers);
+  document.getElementById("btnDownloadSinglePlainQr").addEventListener("click", () => {
+    const id = document.getElementById("genId").value.trim().toUpperCase();
+    const nama = document.getElementById("genNama").value.trim();
+    const sig = document.getElementById("previewSigToken").textContent.trim();
+    const qrUrl = document.getElementById("previewTargetUrl").textContent.trim();
+    if (!id || !qrUrl) return showToast("Data anggota belum lengkap.", "warning");
+    downloadPlainQr(id, nama, qrUrl);
+  });
+  document.getElementById("btnDownloadAllPlainQrZip").addEventListener("click", downloadAllPlainQrZip);
   document.getElementById("btnPrintAllCards").addEventListener("click", () => {
     if (generatedBatchMembers.length === 0) {
       showToast("Klik 'Generate Semua Kartu' terlebih dahulu.", "warning");
@@ -161,7 +170,22 @@ async function processBatchMembers() {
       </div>
     `;
 
-    container.appendChild(cardEl);
+    const wrapper = document.createElement("div");
+    wrapper.style.display = "flex";
+    wrapper.style.flexDirection = "column";
+    wrapper.style.alignItems = "center";
+    wrapper.style.gap = "0.5rem";
+
+    wrapper.appendChild(cardEl);
+
+    const btnDl = document.createElement("button");
+    btnDl.className = "btn btn-primary btn-sm no-print";
+    btnDl.style.width = "100%";
+    btnDl.innerHTML = `📥 Download QR Polos (.png)`;
+    btnDl.onclick = () => downloadPlainQr(id, nama, qrUrl);
+    wrapper.appendChild(btnDl);
+
+    container.appendChild(wrapper);
 
     // Render QR Code untuk kartu ini
     if (typeof QRCode !== "undefined") {
@@ -176,7 +200,121 @@ async function processBatchMembers() {
     }
   }
 
-  showToast(`Selesai! ${generatedBatchMembers.length} kartu siap dicetak.`, "success");
+  showToast(`Selesai! ${generatedBatchMembers.length} kartu & QR siap digunakan.`, "success");
+}
+
+/**
+ * Generate dan Download QR Polos Beresolusi Tinggi sebagai ${namaAnggota}-QR.png
+ */
+function downloadPlainQr(id, nama, url) {
+  const cleanName = (nama || id || "Anggota").trim().replace(/[/\\?%*:|"<>]/g, "_");
+  const filename = `${cleanName}-QR.png`;
+
+  showToast(`Mempersiapkan ${filename}...`, "info");
+
+  const tempDiv = document.createElement("div");
+  tempDiv.style.position = "fixed";
+  tempDiv.style.left = "-9999px";
+  tempDiv.style.top = "-9999px";
+  document.body.appendChild(tempDiv);
+
+  new QRCode(tempDiv, {
+    text: url,
+    width: 450,
+    height: 450,
+    colorDark: "#000000",
+    colorLight: "#ffffff",
+    correctLevel: QRCode.CorrectLevel.H
+  });
+
+  setTimeout(() => {
+    let dataUrl = "";
+    const canvas = tempDiv.querySelector("canvas");
+    if (canvas) {
+      dataUrl = canvas.toDataURL("image/png");
+    } else {
+      const img = tempDiv.querySelector("img");
+      if (img) dataUrl = img.src;
+    }
+
+    if (dataUrl) {
+      const a = document.createElement("a");
+      a.href = dataUrl;
+      a.download = filename;
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      showToast(`Berhasil diunduh: ${filename}`, "success");
+    } else {
+      showToast("Gagal memproses gambar QR", "error");
+    }
+    document.body.removeChild(tempDiv);
+  }, 120);
+}
+
+/**
+ * Download Seluruh QR Code Polos Sekaligus dalam Format ZIP
+ */
+async function downloadAllPlainQrZip() {
+  if (generatedBatchMembers.length === 0) {
+    showToast("Klik 'Generate Semua Kartu' terlebih dahulu.", "warning");
+    return;
+  }
+  if (typeof JSZip === "undefined") {
+    showToast("Library JSZip belum siap. Pastikan internet terhubung.", "error");
+    return;
+  }
+
+  showToast(`Mengemas ${generatedBatchMembers.length} QR polos ke dalam ZIP...`, "info");
+  const zip = new JSZip();
+
+  for (let i = 0; i < generatedBatchMembers.length; i++) {
+    const m = generatedBatchMembers[i];
+    const cleanName = (m.nama || m.id).trim().replace(/[/\\?%*:|"<>]/g, "_");
+    const filename = `${cleanName}-QR.png`;
+
+    const tempDiv = document.createElement("div");
+    tempDiv.style.position = "fixed";
+    tempDiv.style.left = "-9999px";
+    tempDiv.style.top = "-9999px";
+    document.body.appendChild(tempDiv);
+
+    new QRCode(tempDiv, {
+      text: m.qrUrl,
+      width: 450,
+      height: 450,
+      colorDark: "#000000",
+      colorLight: "#ffffff",
+      correctLevel: QRCode.CorrectLevel.H
+    });
+
+    await new Promise(r => setTimeout(r, 60));
+
+    let base64Data = "";
+    const canvas = tempDiv.querySelector("canvas");
+    if (canvas) {
+      base64Data = canvas.toDataURL("image/png").replace(/^data:image\/png;base64,/, "");
+    } else {
+      const img = tempDiv.querySelector("img");
+      if (img && img.src.startsWith("data:")) {
+        base64Data = img.src.replace(/^data:image\/png;base64,/, "");
+      }
+    }
+
+    if (base64Data) {
+      zip.file(filename, base64Data, { base64: true });
+    }
+    document.body.removeChild(tempDiv);
+  }
+
+  const content = await zip.generateAsync({ type: "blob" });
+  const a = document.createElement("a");
+  a.href = URL.createObjectURL(content);
+  a.download = `QR_Polos_PIKR_MANSEKU_${new Date().toISOString().split("T")[0]}.zip`;
+  document.body.appendChild(a);
+  a.click();
+  document.body.removeChild(a);
+  showToast("File ZIP semua QR polos berhasil diunduh!", "success");
 }
 
 /**
@@ -188,8 +326,6 @@ function copyBatchForGoogleSheets() {
     return;
   }
 
-  // Format kolom sesuai sheet Data_Anggota:
-  // ID, Nama, Kelas, Jabatan, NoHP, Status, Signature, URL Kartu, Tanggal
   const rows = generatedBatchMembers.map(m => 
     `${m.id}\t${m.nama}\t${m.kelas}\t${m.jabatan}\t-\tAktif\t${m.sig}\t${m.qrUrl}\t${new Date().toISOString().split("T")[0]}`
   );

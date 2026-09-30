@@ -5,8 +5,9 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Generator Kartu QR Anggota - PIK-R MANSEKU</title>
   <link rel="stylesheet" href="css/style.css">
-  <!-- QRCode.js Library -->
+  <!-- QRCode.js & JSZip Libraries -->
   <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
 </head>
 <body>
 
@@ -106,9 +107,14 @@
           </div>
         </div>
 
-        <button onclick="window.print()" class="btn btn-secondary">
-          🖨️ Cetak Kartu Ini
-        </button>
+        <div style="display: flex; gap: 0.5rem; flex-wrap: wrap; justify-content: center; width: 100%;">
+          <button id="btnDownloadSinglePlainQr" class="btn btn-primary">
+            📥 Download QR Polos (.png)
+          </button>
+          <button onclick="window.print()" class="btn btn-secondary">
+            🖨️ Cetak Kartu KTA
+          </button>
+        </div>
       </div>
 
     </div>
@@ -129,11 +135,14 @@
           <button id="btnProcessBatch" class="btn btn-primary">
             🚀 Generate Semua Kartu
           </button>
-          <button id="btnPrintAllCards" class="btn btn-success">
-            🖨️ Cetak Semua di Lembar A4 (Print)
+          <button id="btnDownloadAllPlainQrZip" class="btn btn-success">
+            📦 Download Semua QR Polos (.zip)
+          </button>
+          <button id="btnPrintAllCards" class="btn btn-secondary">
+            🖨️ Cetak Lembar A4
           </button>
           <button id="btnExportBatchCsv" class="btn btn-secondary">
-            📋 Salin Data untuk Sheet 'Data_Anggota'
+            📋 Salin untuk Google Sheets
           </button>
         </div>
       </div>

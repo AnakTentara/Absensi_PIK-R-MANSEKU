@@ -1,110 +1,81 @@
 /**
  * =========================================================================
- * SISTEM ABSENSI PIK-R MANSEKU (LIFETIME & FUTURE-PROOF ENGINE)
+ * BACKEND & FRONTEND ALL-IN-ONE GOOGLE APPS SCRIPT (FULL HOSTING)
  * =========================================================================
- * 
- * Pengembang  : Program by Haikal
- * Organisasi  : PIK-R MANSEKU (MAN 1 Muara Enim)
- * Versi       : 2.0-Production (HMAC-SHA256 Cryptographic Signature)
- * Secret Key  : sistem_absensi_PIK-R_2026_programbyhaikal
- * 
- * Deskripsi:
- * Script ini berfungsi sebagai REST API backend tanpa biaya server (serverless)
- * yang membaca dan menulis data ke Google Sheets dengan keamanan tanda tangan digital.
+ * Semua sistem (Database, REST API, Scanner, Dashboard, Generator Kartu)
+ * hidup 100% di dalam scripts.google.com tanpa server luar!
  * =========================================================================
  */
 
-// Konfigurasi Utama
 const CONFIG = {
   SECRET_KEY: "sistem_absensi_PIK-R_2026_programbyhaikal",
-  SIG_LENGTH: 10, // 10 karakter hex pertama dari HMAC-SHA256 (1 triliun+ kombinasi acak)
+  SIG_LENGTH: 10,
   SHEET_MEMBERS: "Data_Anggota",
   SHEET_ATTENDANCE: "Riwayat_Absensi",
   SHEET_CONFIG: "Pengaturan",
-  TIMEZONE: "Asia/Jakarta" // Waktu Indonesia Barat (WIB)
+  TIMEZONE: "Asia/Jakarta"
 };
 
 /**
- * Inisialisasi Database Google Sheets otomatis jika sheet belum ada
+ * Setup Database Otomatis
  */
 function setupDatabase() {
   const ss = SpreadsheetApp.getActiveSpreadsheet();
   
-  // 1. Sheet Data Anggota
   let sheetMembers = ss.getSheetByName(CONFIG.SHEET_MEMBERS);
   if (!sheetMembers) {
     sheetMembers = ss.insertSheet(CONFIG.SHEET_MEMBERS);
-    const headers = [
+    sheetMembers.appendRow([
       "ID Anggota", "Nama Lengkap", "Kelas", "Jabatan", "No WhatsApp", 
       "Status", "Signature Token", "URL Kartu QR", "Terdaftar Pada"
-    ];
-    sheetMembers.appendRow(headers);
+    ]);
     formatHeader(sheetMembers);
-    
-    // Sample Data Awal untuk pengujian
+
     const sampleId = "PIKR-2026-001";
     const sampleSig = generateSignature(sampleId);
     sheetMembers.appendRow([
-      sampleId,
-      "Haikal (Sample Anggota)",
-      "XI IPA 1",
-      "Ketua / Pengurus",
-      "08123456789",
-      "Aktif",
-      sampleSig,
-      "https://absensi.pikr-manseku.my.id/id/" + sampleId + "?sig=" + sampleSig,
+      sampleId, "Haikal (Sample Anggota)", "XI IPA 1", "Ketua / Pengurus",
+      "08123456789", "Aktif", sampleSig,
+      "https://absensi.pikr-manseku.my.id?id=" + sampleId + "&sig=" + sampleSig,
       new Date()
     ]);
   }
 
-  // 2. Sheet Riwayat Absensi
   let sheetAttendance = ss.getSheetByName(CONFIG.SHEET_ATTENDANCE);
   if (!sheetAttendance) {
     sheetAttendance = ss.insertSheet(CONFIG.SHEET_ATTENDANCE);
-    const headers = [
-      "ID Log", "Timestamp", "Tanggal", "Jam", "ID Anggota", 
-      "Nama Lengkap", "Kelas", "Status Kehadiran", "Sesi / Kegiatan", 
-      "Petugas Absen", "Catatan"
-    ];
-    sheetAttendance.appendRow(headers);
+    sheetAttendance.appendRow([
+      "ID Log", "Timestamp", "Tanggal", "Jam Masuk", "Jam Pulang", "ID Anggota", 
+      "Nama Lengkap", "Kelas", "Status Kehadiran", "Sesi / Agenda", 
+      "Petugas Absen", "Catatan", "Poin Keaktifan"
+    ]);
     formatHeader(sheetAttendance);
   }
 
-  // 3. Sheet Pengaturan Sesi
   let sheetConfig = ss.getSheetByName(CONFIG.SHEET_CONFIG);
   if (!sheetConfig) {
     sheetConfig = ss.insertSheet(CONFIG.SHEET_CONFIG);
     sheetConfig.appendRow(["Parameter", "Nilai", "Keterangan"]);
     formatHeader(sheetConfig);
-    sheetConfig.appendRow(["NAMA_KEGIATAN", "Pertemuan Mingguan PIK-R", "Nama agenda hari ini"]);
+    sheetConfig.appendRow(["NAMA_KEGIATAN", "Pertemuan Rutin PIK-R", "Nama agenda hari ini"]);
     sheetConfig.appendRow(["STATUS_ABSENSI", "BUKA", "Status gerbang absen: BUKA / TUTUP"]);
     sheetConfig.appendRow(["IZINKAN_DOUBLE_SCAN", "TIDAK", "TIDAK = 1 siswa hanya 1x absen per hari"]);
   }
 
-  return "Database PIK-R MANSEKU berhasil diinisialisasi!";
+  return "Database Google Sheets PIK-R MANSEKU Siap Digunakan!";
 }
 
-/**
- * Format baris header agar rapi dan profesional
- */
 function formatHeader(sheet) {
   const headerRange = sheet.getRange(1, 1, 1, sheet.getLastColumn());
-  headerRange.setBackground("#0d9488"); // Teal khas PIK-R
+  headerRange.setBackground("#0d9488");
   headerRange.setFontColor("#ffffff");
   headerRange.setFontWeight("bold");
   sheet.setFrozenRows(1);
 }
 
-/**
- * Generate HMAC-SHA256 Signature untuk ID Anggota
- * @param {string} idAnggota 
- * @returns {string} 10 karakter hex signature
- */
 function generateSignature(idAnggota) {
   const cleanId = String(idAnggota).trim().toUpperCase();
   const rawBytes = Utilities.computeHmacSha256Signature(cleanId, CONFIG.SECRET_KEY);
-  
-  // Konversi byte array ke hexadecimal
   let hexString = "";
   for (let i = 0; i < rawBytes.length; i++) {
     let byteVal = rawBytes[i];
@@ -113,95 +84,72 @@ function generateSignature(idAnggota) {
     if (byteHex.length === 1) byteHex = "0" + byteHex;
     hexString += byteHex;
   }
-  
   return hexString.substring(0, CONFIG.SIG_LENGTH).toUpperCase();
 }
 
-/**
- * Validasi apakah signature cocok
- */
 function verifySignature(idAnggota, signature) {
   if (!idAnggota || !signature) return false;
-  const expectedSig = generateSignature(idAnggota);
-  return expectedSig.toUpperCase() === String(signature).trim().toUpperCase();
+  return generateSignature(idAnggota).toUpperCase() === String(signature).trim().toUpperCase();
 }
 
 /**
- * Handler HTTP GET
- * Digunakan untuk:
- * - Ping test
- * - Mengambil data anggota
- * - Mengambil riwayat absensi
- * - Verifikasi ID sebelum scan
+ * Web Router Utama (doGet)
+ * Menampilkan Web App atau Melayani Permintaan API JSON
  */
 function doGet(e) {
-  const lock = LockService.getScriptLock();
-  lock.tryLock(10000);
+  const params = e ? e.parameter : {};
 
-  try {
-    const params = e ? e.parameter : {};
-    const action = params.action || "ping";
-
-    let result = {};
-
-    switch (action) {
-      case "ping":
-        result = {
-          status: "success",
-          message: "API Absensi PIK-R MANSEKU Aktif",
-          timestamp: new Date().toISOString()
-        };
-        break;
-
-      case "get_members":
-        result = handleGetMembers();
-        break;
-
-      case "verify_member":
-        result = handleVerifyMember(params.id, params.sig);
-        break;
-
-      case "get_attendance":
-        result = handleGetAttendance(params.tanggal);
-        break;
-
-      case "get_stats":
-        result = handleGetStats(params.tanggal);
-        break;
-
-      case "generate_sig":
-        // Helper khusus admin untuk generate sig dari parameter
-        if (params.id) {
-          result = {
-            status: "success",
-            id: params.id,
-            signature: generateSignature(params.id)
-          };
-        } else {
-          result = { status: "error", message: "Parameter id dibutuhkan." };
-        }
-        break;
-
-      default:
-        result = { status: "error", message: "Action tidak dikenali." };
-    }
-
-    return createJsonResponse(result);
-  } catch (error) {
-    return createJsonResponse({
-      status: "error",
-      message: error.toString()
-    });
-  } finally {
-    lock.releaseLock();
+  // Jika dipanggil oleh API (ada parameter action)
+  if (params.action) {
+    return handleApiGet(params);
   }
+
+  // Jika dibuka lewat browser untuk scan kartu publik
+  if (params.id && params.sig) {
+    return renderMemberPublicCard(params.id, params.sig);
+  }
+
+  // Menampilkan Web Portal Utama PIK-R MANSEKU di script.google.com
+  const page = params.page || "scanner";
+  const htmlOutput = HtmlService.createTemplateFromFile("App");
+  htmlOutput.activePage = page;
+  htmlOutput.scriptUrl = ScriptApp.getService().getUrl();
+  
+  return htmlOutput.evaluate()
+    .setTitle("Portal Absensi & KTA - PIK-R MANSEKU")
+    .addMetaTag("viewport", "width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no")
+    .setXFrameOptionsMode(HtmlService.XFrameOptionsMode.ALLOWALL);
 }
 
 /**
- * Handler HTTP POST
- * Digunakan untuk:
- * - Submit absensi scan kartu
- * - Registrasi / batch update data anggota
+ * Handle API GET
+ */
+function handleApiGet(params) {
+  const action = params.action;
+  let result = {};
+
+  if (action === "ping") {
+    result = { status: "success", message: "API GAS Aktif", timestamp: new Date() };
+  } else if (action === "get_members") {
+    result = handleGetMembers();
+  } else if (action === "get_attendance") {
+    result = handleGetAttendance(params.tanggal);
+  } else if (action === "get_leaderboard") {
+    result = handleGetLeaderboard();
+  } else if (action === "verify_member") {
+    result = handleVerifyMember(params.id, params.sig);
+  } else if (action === "submit_permit") {
+    result = handlePermitOnline(params);
+  } else {
+    result = { status: "error", message: "Action tidak dikenal." };
+  }
+
+  return ContentService.createTextOutput(JSON.stringify(result))
+    .setMimeType(ContentService.MimeType.JSON);
+}
+
+/**
+ * Handle POST (Submit Absensi dari Scanner & Izin Online)
  */
 function doPost(e) {
   const lock = LockService.getScriptLock();
@@ -213,7 +161,6 @@ function doPost(e) {
       try {
         postData = JSON.parse(e.postData.contents);
       } catch (err) {
-        // Fallback jika dikirim via form urlencoded
         postData = e.parameter || {};
       }
     } else if (e && e.parameter) {
@@ -223,365 +170,292 @@ function doPost(e) {
     const action = postData.action || "record_attendance";
     let result = {};
 
-    switch (action) {
-      case "record_attendance":
-        result = handleRecordAttendance(postData);
-        break;
-
-      case "batch_add_members":
-        result = handleBatchAddMembers(postData.members);
-        break;
-
-      default:
-        result = { status: "error", message: "Action POST tidak valid." };
+    if (action === "record_attendance") {
+      result = handleRecordAttendance(postData);
+    } else if (action === "submit_permit") {
+      result = handlePermitOnline(postData);
+    } else {
+      result = { status: "error", message: "Action POST tidak valid." };
     }
 
-    return createJsonResponse(result);
+    return ContentService.createTextOutput(JSON.stringify(result))
+      .setMimeType(ContentService.MimeType.JSON);
   } catch (error) {
-    return createJsonResponse({
-      status: "error",
-      message: error.toString()
-    });
+    return ContentService.createTextOutput(JSON.stringify({ status: "error", message: error.toString() }))
+      .setMimeType(ContentService.MimeType.JSON);
   } finally {
     lock.releaseLock();
   }
 }
 
 /**
- * Helper JSON Response dengan CORS Header Lengkap
+ * Halaman Verifikasi Kartu Publik (Jika QR discan kamera biasa oleh guru / umum)
  */
-function createJsonResponse(data) {
-  return ContentService.createTextOutput(JSON.stringify(data))
-    .setMimeType(ContentService.MimeType.JSON);
-}
-
-/**
- * Mengambil Master Data Anggota
- */
-function handleGetMembers() {
+function renderMemberPublicCard(id, sig) {
+  const isValid = verifySignature(id, sig);
   const ss = SpreadsheetApp.getActiveSpreadsheet();
   const sheet = ss.getSheetByName(CONFIG.SHEET_MEMBERS);
-  if (!sheet) return { status: "error", message: "Sheet Data_Anggota tidak ditemukan." };
-
-  const data = sheet.getDataRange().getValues();
-  if (data.length <= 1) return { status: "success", members: [] };
-
-  const members = [];
-  for (let i = 1; i < data.length; i++) {
-    const row = data[i];
-    if (!row[0]) continue;
-    members.push({
-      id: String(row[0]),
-      nama: String(row[1]),
-      kelas: String(row[2]),
-      jabatan: String(row[3]),
-      noHp: String(row[4]),
-      status: String(row[5]),
-      signature: String(row[6]),
-      urlKartu: String(row[7])
-    });
-  }
-
-  return { status: "success", count: members.length, members: members };
-}
-
-/**
- * Verifikasi Anggota Berdasarkan ID dan Signature Token
- */
-function handleVerifyMember(idAnggota, signature) {
-  if (!idAnggota) {
-    return { status: "error", message: "ID Anggota tidak boleh kosong." };
-  }
-
-  // 1. Verifikasi Kriptografis
-  const isValidSig = verifySignature(idAnggota, signature);
-  if (!isValidSig) {
-    return {
-      status: "invalid_signature",
-      message: "Tanda tangan kartu TIDAK VALID! Kartu diduga tiruan atau rusak.",
-      valid: false
-    };
-  }
-
-  // 2. Cek apakah ada di Database
-  const ss = SpreadsheetApp.getActiveSpreadsheet();
-  const sheet = ss.getSheetByName(CONFIG.SHEET_MEMBERS);
-  const data = sheet.getDataRange().getValues();
+  const data = sheet ? sheet.getDataRange().getValues() : [];
 
   let member = null;
-  const targetId = String(idAnggota).trim().toUpperCase();
-
+  const targetId = String(id).trim().toUpperCase();
   for (let i = 1; i < data.length; i++) {
     if (String(data[i][0]).trim().toUpperCase() === targetId) {
       member = {
-        id: String(data[i][0]),
-        nama: String(data[i][1]),
-        kelas: String(data[i][2]),
-        jabatan: String(data[i][3]),
-        status: String(data[i][5])
+        id: data[i][0],
+        nama: data[i][1],
+        kelas: data[i][2],
+        jabatan: data[i][3],
+        status: data[i][5]
       };
       break;
     }
   }
 
-  if (!member) {
-    return {
-      status: "not_found",
-      message: "Signature kartu asli, namun ID belum terdaftar di Sheet Data_Anggota.",
-      valid: true,
-      registered: false
-    };
-  }
+  const html = `
+    <!DOCTYPE html>
+    <html>
+    <head>
+      <meta name="viewport" content="width=device-width, initial-scale=1.0">
+      <title>Verifikasi Kartu Anggota PIK-R</title>
+      <style>
+        body { font-family: -apple-system, sans-serif; background: #0f172a; color: white; display: flex; align-items: center; justify-content: center; min-height: 100vh; margin: 0; padding: 1rem; }
+        .card { background: #1e293b; border-radius: 20px; padding: 2rem; max-width: 380px; width: 100%; text-align: center; box-shadow: 0 10px 25px rgba(0,0,0,0.4); border: 1px solid #334155; }
+        .badge { display: inline-block; padding: 0.35rem 0.9rem; border-radius: 999px; font-weight: bold; font-size: 0.8rem; margin-bottom: 1rem; }
+        .badge-valid { background: #059669; color: white; }
+        .badge-invalid { background: #dc2626; color: white; }
+        .avatar { width: 70px; height: 70px; border-radius: 50%; background: #0d9488; color: white; font-size: 1.8rem; display: flex; align-items: center; justify-content: center; margin: 0 auto 1rem; font-weight: bold; }
+        h2 { margin: 0 0 0.3rem; font-size: 1.3rem; }
+        p { margin: 0.2rem 0; color: #94a3b8; font-size: 0.9rem; }
+      </style>
+    </head>
+    <body>
+      <div class="card">
+        ${isValid ? '<span class="badge badge-valid">✓ Kartu Terverifikasi Asli</span>' : '<span class="badge badge-invalid">✕ Tanda Tangan Kartu Palsu</span>'}
+        <div class="avatar">${member ? member.nama.charAt(0).toUpperCase() : 'P'}</div>
+        <h2>${member ? member.nama : 'Anggota (' + id + ')'}</h2>
+        <p><strong>${id}</strong></p>
+        <p>${member ? member.kelas + ' • ' + member.jabatan : 'Terverifikasi secara Kriptografis'}</p>
+        <p style="margin-top: 1rem; font-size: 0.75rem; color: #64748b;">Pusat Informasi dan Konseling Remaja (PIK-R)<br>MAN 1 Muara Enim</p>
+      </div>
+    </body>
+    </html>
+  `;
+  return HtmlService.createHtmlOutput(html).setXFrameOptionsMode(HtmlService.XFrameOptionsMode.ALLOWALL);
+}
 
-  return {
-    status: "success",
-    valid: true,
-    registered: true,
-    member: member
-  };
+// Handler data backend
+function handleGetMembers() {
+  const ss = SpreadsheetApp.getActiveSpreadsheet();
+  const sheet = ss.getSheetByName(CONFIG.SHEET_MEMBERS);
+  if (!sheet) return { status: "error", message: "Sheet tidak ada" };
+  const data = sheet.getDataRange().getValues();
+  const members = [];
+  for (let i = 1; i < data.length; i++) {
+    if (data[i][0]) {
+      members.push({ id: data[i][0], nama: data[i][1], kelas: data[i][2], jabatan: data[i][3], status: data[i][5] });
+    }
+  }
+  return { status: "success", members: members };
+}
+
+function handleGetAttendance(tanggal) {
+  const ss = SpreadsheetApp.getActiveSpreadsheet();
+  const sheet = ss.getSheetByName(CONFIG.SHEET_ATTENDANCE);
+  if (!sheet) return { status: "error", message: "Sheet tidak ada" };
+  const data = sheet.getDataRange().getValues();
+  const records = [];
+  for (let i = data.length - 1; i >= 1; i--) {
+    let rowDate = data[i][2];
+    if (rowDate instanceof Date) rowDate = Utilities.formatDate(rowDate, CONFIG.TIMEZONE, "yyyy-MM-dd");
+    if (tanggal && rowDate !== tanggal) continue;
+    records.push({
+      logId: data[i][0],
+      timestamp: data[i][1],
+      tanggal: rowDate,
+      jamMasuk: data[i][3] || "-",
+      jamPulang: data[i][4] || "-",
+      idAnggota: data[i][5],
+      nama: data[i][6],
+      kelas: data[i][7],
+      status: data[i][8],
+      sesi: data[i][9],
+      petugas: data[i][10],
+      catatan: data[i][11] || "-",
+      poin: data[i][12] || 0
+    });
+  }
+  return { status: "success", count: records.length, records: records };
+}
+
+function handleVerifyMember(id, sig) {
+  if (!verifySignature(id, sig)) return { status: "invalid", valid: false };
+  return { status: "success", valid: true };
 }
 
 /**
- * Catat Kehadiran ke Riwayat_Absensi
+ * Catat Kehadiran Cerdas:
+ * Scan 1 ➡️ Catat Masuk (+10 Poin)
+ * Scan 2 ➡️ Otomatis Catat Pulang (+5 Poin Bonus)
+ * Scan 3+ ➡️ Peringatan Sudah Lengkap
  */
 function handleRecordAttendance(payload) {
-  const idAnggota = payload.id;
-  const signature = payload.sig;
-  const petugas = payload.petugas || "Kakak Senior";
-  const statusKehadiran = payload.statusKehadiran || "Hadir";
-  const catatan = payload.catatan || "-";
-
-  if (!idAnggota) {
-    return { status: "error", message: "ID Anggota tidak disertakan." };
-  }
-
-  // Verifikasi Tanda Tangan
-  if (!verifySignature(idAnggota, signature)) {
-    return {
-      status: "error",
-      message: "Absensi ditolak! Signature kartu tidak valid atau telah dimodifikasi."
-    };
+  const id = payload.id;
+  const sig = payload.sig;
+  if (!verifySignature(id, sig)) {
+    return { status: "error", message: "Tanda tangan digital kartu tidak valid!" };
   }
 
   const ss = SpreadsheetApp.getActiveSpreadsheet();
   const sheetMembers = ss.getSheetByName(CONFIG.SHEET_MEMBERS);
   const sheetAttendance = ss.getSheetByName(CONFIG.SHEET_ATTENDANCE);
-  const sheetConfig = ss.getSheetByName(CONFIG.SHEET_CONFIG);
 
-  // Ambil Config Sesi
-  let namaKegiatan = "Pertemuan Mingguan";
-  let izinkanDouble = false;
-
-  if (sheetConfig) {
-    const configData = sheetConfig.getDataRange().getValues();
-    for (let c = 1; c < configData.length; c++) {
-      if (configData[c][0] === "NAMA_KEGIATAN" && configData[c][1]) namaKegiatan = configData[c][1];
-      if (configData[c][0] === "IZINKAN_DOUBLE_SCAN" && String(configData[c][1]).toUpperCase() === "YA") izinkanDouble = true;
-    }
-  }
-
-  // Cari Data Anggota
-  let memberName = "Tidak Terdaftar";
-  let memberClass = "-";
+  let nama = "Anggota (" + id + ")";
+  let kelas = "-";
   const membersData = sheetMembers.getDataRange().getValues();
-  const targetId = String(idAnggota).trim().toUpperCase();
-
-  for (let m = 1; m < membersData.length; m++) {
-    if (String(membersData[m][0]).trim().toUpperCase() === targetId) {
-      memberName = membersData[m][1];
-      memberClass = membersData[m][2];
+  for (let i = 1; i < membersData.length; i++) {
+    if (String(membersData[i][0]).toUpperCase() === String(id).toUpperCase()) {
+      nama = membersData[i][1];
+      kelas = membersData[i][2];
       break;
     }
   }
 
-  // Waktu Saat Ini
   const now = new Date();
   const dateStr = Utilities.formatDate(now, CONFIG.TIMEZONE, "yyyy-MM-dd");
   const timeStr = Utilities.formatDate(now, CONFIG.TIMEZONE, "HH:mm:ss");
+  const agenda = payload.sesi || "Pertemuan Mingguan";
+  const petugas = payload.petugas || "Kakak Senior";
 
-  // Cegah Double Scan pada tanggal yang sama jika dilarang
-  if (!izinkanDouble) {
-    const attendData = sheetAttendance.getDataRange().getValues();
-    for (let a = attendData.length - 1; a >= 1; a--) {
-      const rowDate = attendData[a][2];
-      const rowId = String(attendData[a][4]).trim().toUpperCase();
-      
-      // Cocokkan tanggal dan ID
-      let formattedRowDate = rowDate;
-      if (rowDate instanceof Date) {
-        formattedRowDate = Utilities.formatDate(rowDate, CONFIG.TIMEZONE, "yyyy-MM-dd");
-      }
+  const attendData = sheetAttendance.getDataRange().getValues();
+  let existingRowIndex = -1;
 
-      if (formattedRowDate === dateStr && rowId === targetId) {
-        return {
-          status: "already_recorded",
-          message: "Anggota ini SUDAH ABSEN hari ini pada jam " + attendData[a][3],
-          member: {
-            id: targetId,
-            nama: memberName,
-            kelas: memberClass
-          },
-          absenTerakhir: attendData[a][3]
-        };
-      }
+  for (let a = 1; a < attendData.length; a++) {
+    let rowDate = attendData[a][2];
+    if (rowDate instanceof Date) rowDate = Utilities.formatDate(rowDate, CONFIG.TIMEZONE, "yyyy-MM-dd");
+    const rowId = String(attendData[a][5]).trim().toUpperCase();
+
+    if (rowDate === dateStr && rowId === String(id).trim().toUpperCase()) {
+      existingRowIndex = a + 1; // 1-indexed baris sheet
+      break;
     }
   }
 
-  // Generate ID Log Unik
-  const logId = "LOG-" + Utilities.formatDate(now, CONFIG.TIMEZONE, "yyyyMMdd-HHmmss") + "-" + targetId.replace(/[^A-Za-z0-9]/g, "");
+  // JIKA BELUM PERNAH SCAN HARI INI ➡️ CATAT SEBAGAI ABSEN MASUK
+  if (existingRowIndex === -1) {
+    const logId = "LOG-" + Utilities.formatDate(now, CONFIG.TIMEZONE, "yyyyMMdd-HHmmss") + "-" + String(id).replace(/[^A-Za-z0-9]/g, "");
+    sheetAttendance.appendRow([
+      logId, now, dateStr, timeStr, "-", id, nama, kelas,
+      "Hadir (Masuk)", agenda, petugas, payload.catatan || "-", 10
+    ]);
 
-  // Tulis ke Sheet
-  sheetAttendance.appendRow([
-    logId,
-    now,
-    dateStr,
-    timeStr,
-    targetId,
-    memberName,
-    memberClass,
-    statusKehadiran,
-    namaKegiatan,
-    petugas,
-    catatan
-  ]);
+    return {
+      status: "success",
+      scanType: "MASUK",
+      message: "Absen MASUK berhasil dicatat! (+10 Poin Keaktifan)",
+      data: { id, nama, kelas, tanggal: dateStr, jamMasuk: timeStr, jamPulang: "-", status: "Hadir (Masuk)", poin: 10, sesi: agenda }
+    };
+  }
 
+  // JIKA SUDAH ABSEN MASUK ➡️ OTOMATIS CATAT SEBAGAI ABSEN PULANG
+  const existingRow = attendData[existingRowIndex - 1];
+  const jamMasuk = existingRow[3];
+  const jamPulang = existingRow[4];
+
+  if (!jamPulang || jamPulang === "-" || jamPulang === "") {
+    sheetAttendance.getRange(existingRowIndex, 5).setValue(timeStr); // Update Jam Pulang
+    sheetAttendance.getRange(existingRowIndex, 9).setValue("Hadir Lengkap"); // Update Status
+    sheetAttendance.getRange(existingRowIndex, 13).setValue(15); // Update Total Poin (10 + 5)
+
+    return {
+      status: "success",
+      scanType: "PULANG",
+      message: "Absen PULANG berhasil dicatat! Kehadiran lengkap (+5 Poin Bonus)",
+      data: { id, nama, kelas, tanggal: dateStr, jamMasuk: jamMasuk, jamPulang: timeStr, status: "Hadir Lengkap", poin: 15, sesi: agenda }
+    };
+  }
+
+  // JIKA SUDAH ABSEN MASUK & PULANG KEDUANYA
   return {
-    status: "success",
-    message: "Absensi berhasil dicatat!",
-    logId: logId,
-    data: {
-      id: targetId,
-      nama: memberName,
-      kelas: memberClass,
-      tanggal: dateStr,
-      jam: timeStr,
-      status: statusKehadiran,
-      sesi: namaKegiatan
-    }
+    status: "already_completed",
+    message: "Kehadiran anggota ini sudah LENGKAP hari ini!\n• Masuk: " + jamMasuk + "\n• Pulang: " + jamPulang,
+    data: { id, nama, kelas, tanggal: dateStr, jamMasuk: jamMasuk, jamPulang: jamPulang, status: "Hadir Lengkap" }
   };
 }
 
 /**
- * Ambil Riwayat Absensi
+ * Handle Form Izin / Sakit Online oleh Siswa
  */
-function handleGetAttendance(filterTanggal) {
-  const ss = SpreadsheetApp.getActiveSpreadsheet();
-  const sheet = ss.getSheetByName(CONFIG.SHEET_ATTENDANCE);
-  if (!sheet) return { status: "error", message: "Sheet Riwayat_Absensi tidak ditemukan." };
-
-  const data = sheet.getDataRange().getValues();
-  if (data.length <= 1) return { status: "success", records: [] };
-
-  const records = [];
-  for (let i = data.length - 1; i >= 1; i--) {
-    const row = data[i];
-    let rowDate = row[2];
-    if (rowDate instanceof Date) {
-      rowDate = Utilities.formatDate(rowDate, CONFIG.TIMEZONE, "yyyy-MM-dd");
-    }
-
-    if (filterTanggal && rowDate !== filterTanggal) {
-      continue;
-    }
-
-    records.push({
-      logId: row[0],
-      timestamp: row[1],
-      tanggal: rowDate,
-      jam: row[3],
-      idAnggota: row[4],
-      nama: row[5],
-      kelas: row[6],
-      status: row[7],
-      sesi: row[8],
-      petugas: row[9],
-      catatan: row[10]
-    });
-  }
-
-  return {
-    status: "success",
-    count: records.length,
-    records: records
-  };
-}
-
-/**
- * Statistik Kehadiran Hari Ini
- */
-function handleGetStats(filterTanggal) {
+function handlePermitOnline(payload) {
   const ss = SpreadsheetApp.getActiveSpreadsheet();
   const sheetMembers = ss.getSheetByName(CONFIG.SHEET_MEMBERS);
   const sheetAttendance = ss.getSheetByName(CONFIG.SHEET_ATTENDANCE);
 
-  const totalMembers = Math.max(0, sheetMembers.getLastRow() - 1);
-  const today = filterTanggal || Utilities.formatDate(new Date(), CONFIG.TIMEZONE, "yyyy-MM-dd");
+  const id = (payload.id || "").trim().toUpperCase();
+  const status = payload.status || "Izin";
+  const alasan = payload.alasan || "Izin tidak dapat hadir";
+  const agenda = payload.sesi || "Pertemuan Mingguan";
 
-  const attendData = sheetAttendance.getDataRange().getValues();
-  let hadirCount = 0;
-  let izinCount = 0;
-  let sakitCount = 0;
+  let nama = payload.nama || ("Anggota (" + id + ")");
+  let kelas = payload.kelas || "-";
 
-  for (let i = 1; i < attendData.length; i++) {
-    let rowDate = attendData[i][2];
-    if (rowDate instanceof Date) {
-      rowDate = Utilities.formatDate(rowDate, CONFIG.TIMEZONE, "yyyy-MM-dd");
-    }
-
-    if (rowDate === today) {
-      const status = String(attendData[i][7]).toLowerCase();
-      if (status.includes("hadir")) hadirCount++;
-      else if (status.includes("izin")) izinCount++;
-      else if (status.includes("sakit")) sakitCount++;
+  if (sheetMembers) {
+    const membersData = sheetMembers.getDataRange().getValues();
+    for (let i = 1; i < membersData.length; i++) {
+      if (String(membersData[i][0]).toUpperCase() === id) {
+        nama = membersData[i][1];
+        kelas = membersData[i][2];
+        break;
+      }
     }
   }
 
+  const now = new Date();
+  const dateStr = Utilities.formatDate(now, CONFIG.TIMEZONE, "yyyy-MM-dd");
+  const timeStr = Utilities.formatDate(now, CONFIG.TIMEZONE, "HH:mm:ss");
+  const logId = "PERMIT-" + Utilities.formatDate(now, CONFIG.TIMEZONE, "yyyyMMdd-HHmmss");
+
+  sheetAttendance.appendRow([
+    logId, now, dateStr, "-", "-", id, nama, kelas,
+    status, agenda, "Permit Online", alasan, 2
+  ]);
+
   return {
     status: "success",
-    tanggal: today,
-    totalAnggota: totalMembers,
-    hadir: hadirCount,
-    izin: izinCount,
-    sakit: sakitCount,
-    belumHadir: Math.max(0, totalMembers - (hadirCount + izinCount + sakitCount))
+    message: "Surat " + status + " Anda berhasil terkirim dan tercatat di sistem presensi.",
+    data: { id, nama, kelas, status, tanggal: dateStr, jam: timeStr }
   };
 }
 
 /**
- * Batch Menambahkan Anggota Baru & Otomatis Hitung Signature
+ * Hitung Peringkat Keaktifan Anggota (Leaderboard)
  */
-function handleBatchAddMembers(membersList) {
-  if (!Array.isArray(membersList) || membersList.length === 0) {
-    return { status: "error", message: "Data anggota tidak valid atau kosong." };
+function handleGetLeaderboard() {
+  const ss = SpreadsheetApp.getActiveSpreadsheet();
+  const sheetAttendance = ss.getSheetByName(CONFIG.SHEET_ATTENDANCE);
+  if (!sheetAttendance) return { status: "error", message: "Sheet tidak ada" };
+
+  const data = sheetAttendance.getDataRange().getValues();
+  const pointsMap = {};
+
+  for (let i = 1; i < data.length; i++) {
+    const id = String(data[i][5]).trim().toUpperCase();
+    const nama = data[i][6];
+    const kelas = data[i][7];
+    const status = String(data[i][8]);
+    const poin = Number(data[i][12]) || 0;
+
+    if (!id || id === "-") continue;
+
+    if (!pointsMap[id]) {
+      pointsMap[id] = { id, nama, kelas, totalPoin: 0, hadirCount: 0, izinCount: 0 };
+    }
+
+    pointsMap[id].totalPoin += poin;
+    if (status.toLowerCase().includes("hadir")) pointsMap[id].hadirCount++;
+    else if (status.toLowerCase().includes("izin") || status.toLowerCase().includes("sakit")) pointsMap[id].izinCount++;
   }
 
-  const ss = SpreadsheetApp.getActiveSpreadsheet();
-  const sheet = ss.getSheetByName(CONFIG.SHEET_MEMBERS);
-  
-  let addedCount = 0;
-  const now = new Date();
-
-  membersList.forEach(m => {
-    if (m.id && m.nama) {
-      const sig = generateSignature(m.id);
-      const urlKartu = "https://absensi.pikr-manseku.my.id/id/" + m.id + "?sig=" + sig;
-      sheet.appendRow([
-        m.id,
-        m.nama,
-        m.kelas || "-",
-        m.jabatan || "Anggota",
-        m.noHp || "-",
-        m.status || "Aktif",
-        sig,
-        urlKartu,
-        now
-      ]);
-      addedCount++;
-    }
-  });
-
-  return {
-    status: "success",
-    message: addedCount + " anggota berhasil ditambahkan dengan signature otomatis!"
-  };
+  const leaderboard = Object.values(pointsMap).sort((a, b) => b.totalPoin - a.totalPoin);
+  return { status: "success", leaderboard: leaderboard };
 }
