@@ -1,0 +1,157 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Generator Kartu QR Anggota - PIK-R MANSEKU</title>
+  <link rel="stylesheet" href="css/style.css">
+  <!-- QRCode.js Library -->
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
+</head>
+<body>
+
+  <!-- Navbar -->
+  <header class="navbar no-print">
+    <div class="nav-container">
+      <a href="index.html" class="brand">
+        <img src="logo/logo_pik-r.png" alt="Logo PIK-R MANSEKU" class="brand-logo-img">
+        <div class="brand-text">
+          <h1>PIK-R MANSEKU</h1>
+          <p>Generator Kartu QR & KTA</p>
+        </div>
+      </a>
+      <nav class="nav-links">
+        <a href="index.html" class="nav-btn">📷 Scanner</a>
+        <a href="dashboard.html" class="nav-btn">📊 Rekap Data</a>
+        <a href="generator.html" class="nav-btn active">🪪 Cetak Kartu</a>
+      </nav>
+    </div>
+  </header>
+
+  <!-- Main Content -->
+  <main class="main-content">
+    
+    <div class="no-print" style="margin-bottom: 1.5rem;">
+      <h2 style="font-size: 1.4rem; font-weight: 800;">🪪 Generator Kartu Anggota (KTA) & QR Code</h2>
+      <p style="font-size: 0.85rem; color: var(--text-muted);">
+        Otomatis menghasilkan tanda tangan digital HMAC-SHA256 agar kartu tahan 3 tahun dan mustahil dipalsukan.
+      </p>
+    </div>
+
+    <!-- Mode Selector Tabs -->
+    <div class="no-print" style="display: flex; gap: 0.5rem; margin-bottom: 1.25rem;">
+      <button id="tabSingle" class="btn btn-primary btn-sm">➕ Buat 1 Kartu</button>
+      <button id="tabBatch" class="btn btn-secondary btn-sm">📑 Buat Banyak Sekaligus (Batch / CSV)</button>
+    </div>
+
+    <!-- Section 1: Single Card Generator -->
+    <div id="sectionSingle" class="no-print" style="display: grid; grid-template-columns: 1fr 1fr; gap: 2rem; align-items: start;">
+      
+      <!-- Input Form -->
+      <div class="card">
+        <div class="card-header">
+          <h3 class="card-title">📝 Data Siswa / Anggota</h3>
+        </div>
+
+        <div style="display: flex; flex-direction: column; gap: 0.85rem;">
+          <div>
+            <label style="font-size: 0.75rem; font-weight: 600;">ID Anggota (Format Bebas)</label>
+            <input type="text" id="genId" placeholder="Contoh: PIKR-2026-001" value="PIKR-2026-001" style="width: 100%; padding: 0.6rem; border: 1px solid var(--border); border-radius: var(--radius-sm); text-transform: uppercase;">
+          </div>
+          <div>
+            <label style="font-size: 0.75rem; font-weight: 600;">Nama Lengkap Siswa</label>
+            <input type="text" id="genNama" placeholder="Nama siswa/i..." value="Muhammad Haikal" style="width: 100%; padding: 0.6rem; border: 1px solid var(--border); border-radius: var(--radius-sm);">
+          </div>
+          <div>
+            <label style="font-size: 0.75rem; font-weight: 600;">Kelas / Jurusan</label>
+            <input type="text" id="genKelas" placeholder="Contoh: XI IPA 1" value="XI IPA 1" style="width: 100%; padding: 0.6rem; border: 1px solid var(--border); border-radius: var(--radius-sm);">
+          </div>
+          <div>
+            <label style="font-size: 0.75rem; font-weight: 600;">Jabatan / Status di PIK-R</label>
+            <input type="text" id="genJabatan" placeholder="Contoh: Anggota Aktif" value="Ketua / Pengurus" style="width: 100%; padding: 0.6rem; border: 1px solid var(--border); border-radius: var(--radius-sm);">
+          </div>
+
+          <div style="background: var(--surface-alt); padding: 0.75rem; border-radius: var(--radius-sm); border: 1px solid var(--border);">
+            <div style="font-size: 0.75rem; color: var(--text-muted); font-weight: 600;">Signature Token Terhitung:</div>
+            <div id="previewSigToken" style="font-family: monospace; font-size: 0.95rem; font-weight: 700; color: var(--primary); margin: 0.2rem 0;">-</div>
+            <div style="font-size: 0.7rem; color: var(--text-muted); word-break: break-all;" id="previewTargetUrl">-</div>
+          </div>
+
+          <button id="btnGenerateSingle" class="btn btn-primary" style="margin-top: 0.5rem;">
+            ⚡ Perbarui Kartu
+          </button>
+        </div>
+      </div>
+
+      <!-- Preview Single Card -->
+      <div style="display: flex; flex-direction: column; align-items: center; gap: 1rem;">
+        <div id="singleCardPreview" class="kta-card">
+          <div class="kta-header">
+            <img src="logo/logo_pik-r.png" alt="Logo" style="width: 48px; height: 48px; object-fit: contain; margin-bottom: 0.2rem; filter: drop-shadow(0 2px 4px rgba(0,0,0,0.3));">
+            <h2>PIK-R MANSEKU</h2>
+            <p>MAN 1 Muara Enim • Kartu Tanda Anggota</p>
+          </div>
+
+          <div class="kta-qr-box">
+            <div id="qrcodeSingle"></div>
+            <div style="font-size: 0.68rem; color: #64748b; margin-top: 0.35rem; font-weight: 600;">
+              SCAN IDENTITAS / ABSENSI
+            </div>
+          </div>
+
+          <div class="kta-footer">
+            <div class="kta-name" id="cardViewNama">Muhammad Haikal</div>
+            <div class="kta-id" id="cardViewId">PIKR-2026-001</div>
+            <div class="kta-role" id="cardViewRole">XI IPA 1 • Ketua / Pengurus</div>
+          </div>
+        </div>
+
+        <button onclick="window.print()" class="btn btn-secondary">
+          🖨️ Cetak Kartu Ini
+        </button>
+      </div>
+
+    </div>
+
+    <!-- Section 2: Batch Generator (Multi Cards for all members) -->
+    <div id="sectionBatch" class="no-print" style="display: none;">
+      <div class="card" style="margin-bottom: 1.5rem;">
+        <div class="card-header">
+          <h3 class="card-title">📑 Input Batch Data Anggota</h3>
+        </div>
+        <p style="font-size: 0.85rem; color: var(--text-muted); margin-bottom: 0.75rem;">
+          Format: <code>ID Anggota, Nama Lengkap, Kelas, Jabatan</code> (Satu baris per siswa).
+        </p>
+
+        <textarea id="batchInputText" rows="6" style="width: 100%; padding: 0.75rem; border: 1px solid var(--border); border-radius: var(--radius-sm); font-family: monospace; font-size: 0.85rem;" placeholder="PIKR-2026-001, Muhammad Haikal, XI IPA 1, Pengurus&#10;PIKR-2026-002, Aisyah Nurul, XI IPS 2, Anggota&#10;PIKR-2026-003, Rizky Pratama, X-A, Anggota"></textarea>
+
+        <div style="display: flex; gap: 0.5rem; margin-top: 1rem; flex-wrap: wrap;">
+          <button id="btnProcessBatch" class="btn btn-primary">
+            🚀 Generate Semua Kartu
+          </button>
+          <button id="btnPrintAllCards" class="btn btn-success">
+            🖨️ Cetak Semua di Lembar A4 (Print)
+          </button>
+          <button id="btnExportBatchCsv" class="btn btn-secondary">
+            📋 Salin Data untuk Sheet 'Data_Anggota'
+          </button>
+        </div>
+      </div>
+    </div>
+
+    <!-- Container Print/Preview Batch Cards -->
+    <div id="batchCardsContainer" class="print-grid" style="display: none; grid-template-columns: repeat(auto-fill, minmax(320px, 1fr)); gap: 1.5rem; justify-items: center; margin-top: 1.5rem;">
+      <!-- Generated cards inserted dynamically -->
+    </div>
+
+  </main>
+
+  <!-- Toast Container -->
+  <div class="toast-container" id="toastContainer"></div>
+
+  <!-- Scripts -->
+  <script src="js/config.js"></script>
+  <script src="js/crypto-util.js"></script>
+  <script src="js/generator.js"></script>
+</body>
+</html>

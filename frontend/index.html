@@ -1,0 +1,218 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+  <title>Portal Absensi - PIK-R MANSEKU</title>
+  <link rel="stylesheet" href="css/style.css">
+  <!-- HTML5 QR Code Scanner Library -->
+  <script src="https://unpkg.com/html5-qrcode@2.3.8/html5-qrcode.min.js"></script>
+</head>
+<body>
+
+  <!-- Navbar -->
+  <header class="navbar">
+    <div class="nav-container">
+      <a href="index.html" class="brand">
+        <img src="logo/logo_pik-r.png" alt="Logo PIK-R MANSEKU" class="brand-logo-img">
+        <div class="brand-text">
+          <h1>PIK-R MANSEKU</h1>
+          <p>Portal Absensi Resmi</p>
+        </div>
+      </a>
+      <nav class="nav-links">
+        <a href="index.html" class="nav-btn active">📷 Scanner</a>
+        <a href="dashboard.html" class="nav-btn">📊 Rekap Data</a>
+        <a href="generator.html" class="nav-btn">🪪 Cetak Kartu</a>
+      </nav>
+    </div>
+  </header>
+
+  <!-- Main Content -->
+  <main class="main-content">
+    <div class="scanner-grid">
+      
+      <!-- Left Column: Scanner Viewport -->
+      <section class="card">
+        <div class="card-header">
+          <h2 class="card-title">📷 Kamera Scanner</h2>
+          <span id="scannerStatusBadge" class="badge badge-info">Siap Scan</span>
+        </div>
+
+        <!-- Video Reader Viewport -->
+        <div class="scanner-viewport-wrapper">
+          <div id="reader"></div>
+          <div class="laser-guide" id="laserGuide"></div>
+        </div>
+
+        <!-- Controls -->
+        <div class="scanner-controls">
+          <button id="btnStartScan" class="btn btn-primary">
+            ▶ Mulai Kamera
+          </button>
+          <button id="btnSwitchCamera" class="btn btn-secondary" style="display: none;">
+            🔄 Ganti Kamera
+          </button>
+          <button id="btnStopScan" class="btn btn-secondary" style="display: none;">
+            ⏹ Hentikan
+          </button>
+          <button id="btnManualInput" class="btn btn-secondary">
+            ⌨️ Absen Manual
+          </button>
+        </div>
+
+        <!-- Info Sesi & Petugas -->
+        <div style="margin-top: 1.25rem; display: flex; gap: 0.75rem; flex-wrap: wrap;">
+          <div style="flex: 1; min-width: 140px;">
+            <label style="font-size: 0.75rem; color: var(--text-muted); font-weight: 600; display: block; margin-bottom: 0.2rem;">
+              Petugas Absen (Kakak Senior)
+            </label>
+            <input type="text" id="inputPetugas" class="btn-secondary" style="width: 100%; padding: 0.5rem 0.8rem; border-radius: var(--radius-sm); font-size: 0.85rem;" placeholder="Nama Kakak Senior...">
+          </div>
+          <div style="flex: 1; min-width: 140px;">
+            <label style="font-size: 0.75rem; color: var(--text-muted); font-weight: 600; display: block; margin-bottom: 0.2rem;">
+              Agenda / Sesi Hari Ini
+            </label>
+            <input type="text" id="inputSesi" class="btn-secondary" style="width: 100%; padding: 0.5rem 0.8rem; border-radius: var(--radius-sm); font-size: 0.85rem;" value="Pertemuan Rutin PIK-R">
+          </div>
+        </div>
+
+        <!-- Hasil Scan Terakhir (Slide Card) -->
+        <div id="scanResultCard" class="result-card">
+          <div style="display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 0.5rem;">
+            <span id="resBadge" class="badge badge-success">Terverifikasi</span>
+            <span id="resTime" style="font-size: 0.75rem; color: var(--text-muted);">16:30 WIB</span>
+          </div>
+
+          <div class="member-profile-preview">
+            <div class="member-avatar" id="resAvatar">A</div>
+            <div class="member-info">
+              <h3 id="resNama">Nama Anggota</h3>
+              <p><span id="resId">PIKR-2026-001</span> • <span id="resKelas">XI IPA 1</span></p>
+              <p id="resStatusDetail" style="margin-top: 0.2rem; font-weight: 600; color: var(--primary);">
+                Status: Hadir
+              </p>
+            </div>
+          </div>
+
+          <div id="resMessage" style="font-size: 0.85rem; padding: 0.5rem 0.75rem; background: var(--surface); border-radius: var(--radius-sm); margin-bottom: 0.75rem; border: 1px solid var(--border);">
+            Absensi berhasil dicatat ke Google Sheets!
+          </div>
+
+          <div style="display: flex; gap: 0.5rem;">
+            <button id="btnNextScan" class="btn btn-primary btn-sm" style="flex: 1;">
+              ⚡ Siap Scan Berikutnya
+            </button>
+          </div>
+        </div>
+
+      </section>
+
+      <!-- Right Column: Riwayat Scan Hari Ini -->
+      <section class="card">
+        <div class="card-header">
+          <h2 class="card-title">📋 Antrean Scan Hari Ini</h2>
+          <span id="scanCounterBadge" class="badge badge-success">0 Hadir</span>
+        </div>
+
+        <div style="margin-bottom: 1rem;">
+          <input type="text" id="searchLog" placeholder="Cari nama atau ID yang baru discan..." style="width: 100%; padding: 0.6rem 0.85rem; border: 1px solid var(--border); border-radius: var(--radius-sm); font-size: 0.85rem;">
+        </div>
+
+        <!-- Live Scan Logs -->
+        <div class="logs-list" id="recentLogsList">
+          <div style="text-align: center; padding: 2.5rem 1rem; color: var(--text-muted); font-size: 0.85rem;">
+            Belum ada anggota yang discan hari ini.<br>Arahkan kamera ke QR Code pada kartu fisik anggota.
+          </div>
+        </div>
+
+        <!-- Tombol Pengaturan API GAS -->
+        <div style="margin-top: 1.5rem; padding-top: 1rem; border-top: 1px solid var(--border); display: flex; justify-content: space-between; align-items: center;">
+          <span style="font-size: 0.75rem; color: var(--text-muted);">
+            Engine: Google Apps Script + HMAC
+          </span>
+          <button id="btnConfigGAS" class="btn btn-secondary btn-sm">
+            ⚙️ Hubungkan Spreadsheet
+          </button>
+        </div>
+      </section>
+
+    </div>
+  </main>
+
+  <!-- Modal Manual Input -->
+  <div id="manualModal" style="display: none; position: fixed; inset: 0; background: rgba(0,0,0,0.5); z-index: 100; align-items: center; justify-content: center; padding: 1rem;">
+    <div class="card" style="width: 100%; max-width: 420px; animation: slideUp 0.25s ease;">
+      <div class="card-header">
+        <h3 class="card-title">⌨️ Input Absen Manual</h3>
+        <button id="btnCloseManual" style="background: none; border: none; font-size: 1.25rem; cursor: pointer;">✕</button>
+      </div>
+      <p style="font-size: 0.8rem; color: var(--text-muted); margin-bottom: 1rem;">
+        Gunakan opsi ini jika kartu fisik anggota tertinggal atau QR code rusak.
+      </p>
+      
+      <div style="display: flex; flex-direction: column; gap: 0.75rem;">
+        <div>
+          <label style="font-size: 0.75rem; font-weight: 600;">ID Anggota</label>
+          <input type="text" id="manualId" placeholder="Contoh: PIKR-2026-001" style="width: 100%; padding: 0.6rem; border: 1px solid var(--border); border-radius: var(--radius-sm); text-transform: uppercase;">
+        </div>
+        <div>
+          <label style="font-size: 0.75rem; font-weight: 600;">Status Kehadiran</label>
+          <select id="manualStatus" style="width: 100%; padding: 0.6rem; border: 1px solid var(--border); border-radius: var(--radius-sm);">
+            <option value="Hadir">Hadir</option>
+            <option value="Izin">Izin</option>
+            <option value="Sakit">Sakit</option>
+          </select>
+        </div>
+        <div>
+          <label style="font-size: 0.75rem; font-weight: 600;">Catatan / Keterangan</label>
+          <input type="text" id="manualCatatan" placeholder="Contoh: Kartu tertinggal di kelas" style="width: 100%; padding: 0.6rem; border: 1px solid var(--border); border-radius: var(--radius-sm);">
+        </div>
+        <button id="btnSubmitManual" class="btn btn-primary" style="margin-top: 0.5rem;">
+          Catat Absen Manual
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Modal Konfigurasi GAS -->
+  <div id="gasConfigModal" style="display: none; position: fixed; inset: 0; background: rgba(0,0,0,0.5); z-index: 100; align-items: center; justify-content: center; padding: 1rem;">
+    <div class="card" style="width: 100%; max-width: 480px; animation: slideUp 0.25s ease;">
+      <div class="card-header">
+        <h3 class="card-title">⚙️ Konfigurasi URL Google Apps Script</h3>
+        <button id="btnCloseGasModal" style="background: none; border: none; font-size: 1.25rem; cursor: pointer;">✕</button>
+      </div>
+      <p style="font-size: 0.8rem; color: var(--text-muted); margin-bottom: 0.75rem;">
+        Tempelkan URL Web App hasil deploy dari Google Apps Script untuk menghubungkan scanner ini ke Spreadsheet resmi PIK-R.
+      </p>
+      
+      <div style="display: flex; flex-direction: column; gap: 0.75rem;">
+        <div>
+          <label style="font-size: 0.75rem; font-weight: 600;">URL Deployment Google Apps Script</label>
+          <input type="url" id="inputGasEndpoint" placeholder="https://script.google.com/macros/s/.../exec" style="width: 100%; padding: 0.6rem; border: 1px solid var(--border); border-radius: var(--radius-sm); font-size: 0.8rem;">
+        </div>
+        <div>
+          <label style="font-size: 0.75rem; font-weight: 600;">Secret Key Tanda Tangan</label>
+          <input type="text" value="sistem_absensi_PIK-R_2026_programbyhaikal" readonly style="width: 100%; padding: 0.6rem; border: 1px solid var(--border); border-radius: var(--radius-sm); background: #f1f5f9; font-family: monospace; font-size: 0.78rem;">
+        </div>
+        <div style="display: flex; gap: 0.5rem; margin-top: 0.5rem;">
+          <button id="btnSaveGasConfig" class="btn btn-primary" style="flex: 1;">
+            Simpan Konfigurasi
+          </button>
+          <button id="btnTestPingGAS" class="btn btn-secondary">
+            Tes Koneksi (Ping)
+          </button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Toast Container -->
+  <div class="toast-container" id="toastContainer"></div>
+
+  <!-- Scripts -->
+  <script src="js/config.js"></script>
+  <script src="js/crypto-util.js"></script>
+  <script src="js/scanner.js"></script>
+</body>
+</html>

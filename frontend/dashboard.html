@@ -1,0 +1,156 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Rekap & Laporan Absensi - PIK-R MANSEKU</title>
+  <link rel="stylesheet" href="css/style.css">
+  <!-- SheetJS for 1-Click Excel (.xlsx) Export directly in browser -->
+  <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
+</head>
+<body>
+
+  <!-- Navbar -->
+  <header class="navbar">
+    <div class="nav-container">
+      <a href="index.html" class="brand">
+        <img src="logo/logo_pik-r.png" alt="Logo PIK-R MANSEKU" class="brand-logo-img">
+        <div class="brand-text">
+          <h1>PIK-R MANSEKU</h1>
+          <p>Dashboard Rekap & Laporan</p>
+        </div>
+      </a>
+      <nav class="nav-links">
+        <a href="index.html" class="nav-btn">📷 Scanner</a>
+        <a href="dashboard.html" class="nav-btn active">📊 Rekap Data</a>
+        <a href="generator.html" class="nav-btn">🪪 Cetak Kartu</a>
+      </nav>
+    </div>
+  </header>
+
+  <!-- Main Content -->
+  <main class="main-content">
+    
+    <!-- Top Bar & Actions -->
+    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 1.5rem; flex-wrap: wrap; gap: 1rem;">
+      <div>
+        <h2 style="font-size: 1.4rem; font-weight: 800; color: var(--text-main);">📊 Rekap Presensi Anggota</h2>
+        <p style="font-size: 0.85rem; color: var(--text-muted);">Pantau data kehadiran real-time dan ekspor laporan ke Excel / Spreadsheet.</p>
+      </div>
+      <div style="display: flex; gap: 0.5rem; flex-wrap: wrap;">
+        <button id="btnRefreshData" class="btn btn-secondary btn-sm">
+          🔄 Muat Ulang Data
+        </button>
+        <button id="btnExportExcel" class="btn btn-success btn-sm">
+          📥 Download Excel (.xlsx)
+        </button>
+        <button id="btnExportCsv" class="btn btn-secondary btn-sm">
+          📄 Download CSV
+        </button>
+      </div>
+    </div>
+
+    <!-- Stats Grid -->
+    <div class="stats-grid">
+      <div class="stat-card">
+        <div class="stat-icon teal">👥</div>
+        <div class="stat-meta">
+          <h3 id="statTotalAnggota">0</h3>
+          <p>Total Anggota</p>
+        </div>
+      </div>
+      <div class="stat-card">
+        <div class="stat-icon green">✓</div>
+        <div class="stat-meta">
+          <h3 id="statHadir">0</h3>
+          <p>Hadir Hari Ini</p>
+        </div>
+      </div>
+      <div class="stat-card">
+        <div class="stat-icon blue">✉️</div>
+        <div class="stat-meta">
+          <h3 id="statIzin">0</h3>
+          <p>Izin / Sakit</p>
+        </div>
+      </div>
+      <div class="stat-card">
+        <div class="stat-icon amber">⏳</div>
+        <div class="stat-meta">
+          <h3 id="statBelum">0</h3>
+          <p>Belum Hadir</p>
+        </div>
+      </div>
+    </div>
+
+    <!-- Filter Card -->
+    <div class="card" style="margin-bottom: 1.5rem; padding: 1.1rem 1.5rem;">
+      <div style="display: flex; gap: 1rem; flex-wrap: wrap; align-items: flex-end;">
+        <div style="flex: 1; min-width: 180px;">
+          <label style="font-size: 0.75rem; font-weight: 600; color: var(--text-muted); display: block; margin-bottom: 0.3rem;">
+            Pilih Tanggal Presensi
+          </label>
+          <input type="date" id="filterDate" style="width: 100%; padding: 0.55rem 0.8rem; border: 1px solid var(--border); border-radius: var(--radius-sm); font-size: 0.85rem;">
+        </div>
+        <div style="flex: 1; min-width: 180px;">
+          <label style="font-size: 0.75rem; font-weight: 600; color: var(--text-muted); display: block; margin-bottom: 0.3rem;">
+            Filter Status Kehadiran
+          </label>
+          <select id="filterStatus" style="width: 100%; padding: 0.55rem 0.8rem; border: 1px solid var(--border); border-radius: var(--radius-sm); font-size: 0.85rem;">
+            <option value="ALL">Semua Status</option>
+            <option value="Hadir">Hadir</option>
+            <option value="Izin">Izin</option>
+            <option value="Sakit">Sakit</option>
+          </select>
+        </div>
+        <div style="flex: 1.5; min-width: 220px;">
+          <label style="font-size: 0.75rem; font-weight: 600; color: var(--text-muted); display: block; margin-bottom: 0.3rem;">
+            Cari Nama / ID / Kelas
+          </label>
+          <input type="text" id="filterSearch" placeholder="Ketik nama atau kelas..." style="width: 100%; padding: 0.55rem 0.8rem; border: 1px solid var(--border); border-radius: var(--radius-sm); font-size: 0.85rem;">
+        </div>
+      </div>
+    </div>
+
+    <!-- Table of Records -->
+    <div class="card">
+      <div class="card-header">
+        <h3 class="card-title">📋 Rincian Kehadiran</h3>
+        <span id="recordCountBadge" class="badge badge-info">0 Data Ditemukan</span>
+      </div>
+
+      <div class="table-responsive">
+        <table id="attendanceTable">
+          <thead>
+            <tr>
+              <th>Waktu</th>
+              <th>ID Anggota</th>
+              <th>Nama Lengkap</th>
+              <th>Kelas</th>
+              <th>Status</th>
+              <th>Kegiatan / Sesi</th>
+              <th>Petugas Scan</th>
+              <th>Catatan</th>
+            </tr>
+          </thead>
+          <tbody id="attendanceTbody">
+            <tr>
+              <td colspan="8" style="text-align: center; padding: 2.5rem; color: var(--text-muted);">
+                Memuat data dari Google Apps Script...
+              </td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+
+  </main>
+
+  <!-- Toast Container -->
+  <div class="toast-container" id="toastContainer"></div>
+
+  <!-- Scripts -->
+  <script src="js/config.js"></script>
+  <script src="js/crypto-util.js"></script>
+  <script src="js/dashboard.js"></script>
+</body>
+</html>

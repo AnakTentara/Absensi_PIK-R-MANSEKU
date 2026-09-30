@@ -1,0 +1,552 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+  <title>Portal Absensi - PIK-R MANSEKU</title>
+  <!-- Library QR Scanner, SheetJS, & QRCode -->
+  <script src="https://unpkg.com/html5-qrcode@2.3.8/html5-qrcode.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
+
+  <style>
+    :root {
+      --primary: #ea580c;
+      --primary-hover: #c2410c;
+      --primary-light: #ffedd5;
+      --secondary: #f59e0b;
+      --success: #16a34a;
+      --warning: #f59e0b;
+      --danger: #dc2626;
+      --dark-bg: #1c1917;
+      --surface: #ffffff;
+      --surface-alt: #fdfbf7;
+      --border: #fed7aa;
+      --text-main: #292524;
+      --text-muted: #78716c;
+      --radius-md: 14px;
+      --radius-sm: 8px;
+    }
+    * { box-sizing: border-box; margin: 0; padding: 0; font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; }
+    body { background: var(--surface-alt); color: var(--text-main); min-height: 100vh; display: flex; flex-direction: column; }
+    
+    .navbar { background: var(--surface); border-bottom: 1px solid var(--border); position: sticky; top: 0; z-index: 50; }
+    .nav-container { max-width: 1100px; margin: 0 auto; padding: 0.85rem 1.25rem; display: flex; align-items: center; justify-content: space-between; }
+    .brand { display: flex; align-items: center; gap: 0.75rem; text-decoration: none; color: var(--text-main); font-weight: bold; }
+    .brand-logo-img { width: 44px; height: 44px; object-fit: contain; filter: drop-shadow(0 2px 5px rgba(234, 88, 12, 0.25)); border-radius: var(--radius-sm); }
+    .brand-logo { width: 44px; height: 44px; background: linear-gradient(135deg, var(--primary), var(--secondary)); border-radius: 12px; display: flex; align-items: center; justify-content: center; color: white; font-weight: 800; }
+    .nav-tabs { display: flex; gap: 0.4rem; }
+    .tab-btn { padding: 0.5rem 0.9rem; border-radius: 999px; font-size: 0.85rem; font-weight: 600; cursor: pointer; border: none; background: transparent; color: var(--text-muted); }
+    .tab-btn.active { background: var(--primary-light); color: #9a3412; }
+
+    .main-content { max-width: 1100px; margin: 0 auto; padding: 1.5rem 1.25rem 3rem; width: 100%; flex: 1; }
+    .page-section { display: none; }
+    .page-section.active { display: block; animation: fadeIn 0.25s ease; }
+    @keyframes fadeIn { from { opacity: 0; transform: translateY(6px); } to { opacity: 1; transform: translateY(0); } }
+
+    .card { background: var(--surface); border-radius: var(--radius-md); border: 1px solid var(--border); padding: 1.5rem; box-shadow: 0 4px 14px rgba(124,45,18,0.06); }
+    .scanner-grid { display: grid; grid-template-columns: 1.1fr 0.9fr; gap: 1.5rem; }
+    @media (max-width: 860px) { .scanner-grid { grid-template-columns: 1fr; } }
+
+    .viewport { position: relative; background: #000; border-radius: var(--radius-md); overflow: hidden; min-height: 290px; }
+    #reader { width: 100%; border: none !important; }
+    .laser { position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); width: 220px; height: 220px; border: 2px dashed rgba(255,255,255,0.4); border-radius: 14px; pointer-events: none; z-index: 10; }
+    .laser::before { content: ""; position: absolute; left: 0; right: 0; height: 2px; background: #ea580c; box-shadow: 0 0 10px #ea580c, 0 0 20px #fb923c; animation: scanAnim 2s infinite ease-in-out; }
+    @keyframes scanAnim { 0% { top: 0%; } 50% { top: 98%; } 100% { top: 0%; } }
+
+    .btn { display: inline-flex; align-items: center; justify-content: center; gap: 0.4rem; padding: 0.65rem 1.2rem; border-radius: var(--radius-sm); font-size: 0.88rem; font-weight: 600; cursor: pointer; border: none; text-decoration: none; }
+    .btn-primary { background: var(--primary); color: white; }
+    .btn-primary:hover { background: var(--primary-hover); }
+    .btn-secondary { background: var(--surface-alt); color: var(--text-main); border: 1px solid var(--border); }
+    .btn-success { background: var(--success); color: white; }
+    .btn-sm { padding: 0.4rem 0.8rem; font-size: 0.8rem; }
+
+    .badge { display: inline-flex; padding: 0.2rem 0.65rem; border-radius: 999px; font-size: 0.75rem; font-weight: 700; }
+    .badge-success { background: #dcfce7; color: #166534; }
+    .badge-warning { background: #fef3c7; color: #92400e; }
+    .badge-danger { background: #fee2e2; color: #991b1b; }
+    .badge-info { background: #ffedd5; color: #9a3412; }
+
+    .stats-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap: 1rem; margin-bottom: 1.5rem; }
+    .stat-card { background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius-sm); padding: 1.1rem; }
+    .stat-card h3 { font-size: 1.5rem; font-weight: 800; color: var(--text-main); }
+    .stat-card p { font-size: 0.8rem; color: var(--text-muted); }
+
+    .table-resp { width: 100%; overflow-x: auto; border: 1px solid var(--border); border-radius: var(--radius-sm); }
+    table { width: 100%; border-collapse: collapse; font-size: 0.85rem; text-align: left; }
+    th { background: var(--surface-alt); padding: 0.75rem 1rem; color: var(--text-muted); border-bottom: 1px solid var(--border); }
+    td { padding: 0.75rem 1rem; border-bottom: 1px solid var(--border); }
+
+    /* KTA Card */
+    .kta-card { width: 300px; height: 460px; background: linear-gradient(145deg, #7c2d12, #ea580c 50%, #f97316 100%); border-radius: 18px; color: white; padding: 1.5rem; display: flex; flex-direction: column; justify-content: space-between; box-shadow: 0 12px 28px rgba(124,45,18,0.25); }
+    .kta-box { background: white; padding: 0.75rem; border-radius: 12px; align-self: center; display: flex; flex-direction: column; align-items: center; }
+
+    /* Toast */
+    .toast-box { position: fixed; bottom: 1.5rem; right: 1.5rem; z-index: 999; display: flex; flex-direction: column; gap: 0.5rem; }
+    .toast { background: var(--dark-bg); color: white; padding: 0.8rem 1.2rem; border-radius: 8px; font-size: 0.85rem; border-left: 4px solid var(--primary); }
+    .toast.err { border-left-color: var(--danger); }
+    .toast.warn { border-left-color: var(--warning); }
+
+    @media print {
+      .navbar, .no-print, .btn { display: none !important; }
+      .print-grid { display: grid !important; grid-template-columns: repeat(2, 1fr) !important; gap: 1.5cm !important; }
+      .kta-card { box-shadow: none !important; border: 1px solid #ccc !important; }
+    }
+  </style>
+</head>
+<body>
+
+  <!-- Navbar -->
+  <header class="navbar no-print">
+    <div class="nav-container">
+      <div class="brand">
+        <img src="https://raw.githubusercontent.com/AnakTentara/Absensi_PIK-R-MANSEKU/main/logo/logo_pik-r.png"
+             onerror="this.style.display='none'; document.getElementById('gasFallbackLogo').style.display='flex';"
+             alt="Logo PIK-R MANSEKU"
+             class="brand-logo-img">
+        <div id="gasFallbackLogo" class="brand-logo" style="display: none;">PR</div>
+        <div>
+          <div style="font-size: 1rem; font-weight: 700;">PIK-R MANSEKU</div>
+          <div style="font-size: 0.72rem; color: var(--text-muted);">Sistem Absensi Lifetime (MAN 1 Muara Enim)</div>
+        </div>
+      </div>
+      <div class="nav-tabs">
+        <button class="tab-btn active" onclick="switchTab('tab-scanner')">📷 Scanner</button>
+        <button class="tab-btn" onclick="switchTab('tab-dashboard')">📊 Rekap Data</button>
+        <button class="tab-btn" onclick="switchTab('tab-generator')">🪪 Cetak Kartu</button>
+      </div>
+    </div>
+  </header>
+
+  <main class="main-content">
+    
+    <!-- SECTION 1: SCANNER -->
+    <div id="tab-scanner" class="page-section active">
+      <div class="scanner-grid">
+        <div class="card">
+          <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 1rem;">
+            <h2 style="font-size: 1.15rem; font-weight: 700;">📷 Kamera Scanner Senior</h2>
+            <span id="scanStatusBadge" class="badge badge-info">Siap</span>
+          </div>
+
+          <div class="viewport">
+            <div id="reader"></div>
+            <div class="laser" id="laserLine" style="display: none;"></div>
+          </div>
+
+          <div style="display: flex; gap: 0.5rem; margin-top: 1rem; flex-wrap: wrap;">
+            <button id="btnStart" class="btn btn-primary" onclick="startScanner()">▶ Buka Kamera</button>
+            <button id="btnStop" class="btn btn-secondary" onclick="stopScanner()" style="display: none;">⏹ Tutup</button>
+            <button id="btnSwitchCam" class="btn btn-secondary" onclick="switchCamera()" style="display: none;">🔄 Ganti Kamera</button>
+          </div>
+
+          <div style="margin-top: 1rem; display: flex; gap: 0.75rem; flex-wrap: wrap;">
+            <div style="flex: 1; min-width: 140px;">
+              <label style="font-size: 0.75rem; color: var(--text-muted); font-weight: 600;">Petugas Senior</label>
+              <input type="text" id="petugasName" placeholder="Nama Kakak Senior..." style="width: 100%; padding: 0.5rem; border: 1px solid var(--border); border-radius: 6px; font-size: 0.85rem;">
+            </div>
+            <div style="flex: 1; min-width: 140px;">
+              <label style="font-size: 0.75rem; color: var(--text-muted); font-weight: 600;">Agenda Sesi</label>
+              <input type="text" id="sesiName" value="Pertemuan Rutin PIK-R" style="width: 100%; padding: 0.5rem; border: 1px solid var(--border); border-radius: 6px; font-size: 0.85rem;">
+            </div>
+          </div>
+
+          <!-- Slide Card Info Siswa -->
+          <div id="scanResultCard" style="display: none; margin-top: 1rem; padding: 1rem; background: var(--surface-alt); border-radius: var(--radius-sm); border: 1px solid var(--border);">
+            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.5rem;">
+              <span id="resBadge" class="badge badge-success">Hadir</span>
+              <span id="resTime" style="font-size: 0.75rem; color: var(--text-muted);">16:45 WIB</span>
+            </div>
+            <h3 id="resNama" style="font-size: 1.1rem; color: var(--text-main);">Nama Anggota</h3>
+            <p style="font-size: 0.82rem; color: var(--text-muted); margin-bottom: 0.5rem;"><span id="resId">PIKR-001</span> • <span id="resKelas">XI IPA 1</span></p>
+            <div id="resMsg" style="font-size: 0.8rem; padding: 0.4rem 0.6rem; background: white; border-radius: 4px; border: 1px solid var(--border);">Absensi berhasil!</div>
+          </div>
+        </div>
+
+        <div class="card">
+          <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 1rem;">
+            <h3 style="font-size: 1.1rem; font-weight: 700;">📋 Log Presensi Hari Ini</h3>
+            <span id="todayCountBadge" class="badge badge-success">0 Hadir</span>
+          </div>
+          <div id="logsContainer" style="max-height: 420px; overflow-y: auto; display: flex; flex-direction: column; gap: 0.5rem;">
+            <div style="text-align: center; padding: 2rem; color: var(--text-muted); font-size: 0.85rem;">Belum ada yang discan hari ini.</div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- SECTION 2: DASHBOARD -->
+    <div id="tab-dashboard" class="page-section">
+      <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 1.5rem; flex-wrap: wrap; gap: 1rem;">
+        <div>
+          <h2 style="font-size: 1.3rem; font-weight: 800;">📊 Rekapitulasi Presensi</h2>
+          <p style="font-size: 0.85rem; color: var(--text-muted);">Pantau kehadiran dan download laporan Excel langsung ke laptop/HP.</p>
+        </div>
+        <div style="display: flex; gap: 0.5rem;">
+          <button class="btn btn-secondary btn-sm" onclick="loadDashboardData()">🔄 Refresh</button>
+          <button class="btn btn-success btn-sm" onclick="downloadExcel()">📥 Download Excel (.xlsx)</button>
+        </div>
+      </div>
+
+      <div class="stats-grid">
+        <div class="stat-card">
+          <h3 id="statTotal">0</h3>
+          <p>Total Anggota</p>
+        </div>
+        <div class="stat-card">
+          <h3 id="statHadir" style="color: var(--success);">0</h3>
+          <p>Hadir</p>
+        </div>
+        <div class="stat-card">
+          <h3 id="statIzin" style="color: var(--secondary);">0</h3>
+          <p>Izin / Sakit</p>
+        </div>
+        <div class="stat-card">
+          <h3 id="statBelum" style="color: var(--warning);">0</h3>
+          <p>Belum Hadir</p>
+        </div>
+      </div>
+
+      <div class="card">
+        <div class="table-resp">
+          <table>
+            <thead>
+              <tr>
+                <th>Waktu</th>
+                <th>ID Anggota</th>
+                <th>Nama Lengkap</th>
+                <th>Kelas</th>
+                <th>Status</th>
+                <th>Kegiatan</th>
+                <th>Petugas</th>
+              </tr>
+            </thead>
+            <tbody id="dashTableBody">
+              <tr><td colspan="7" style="text-align: center; padding: 2rem; color: var(--text-muted);">Klik refresh untuk memuat data...</td></tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+
+    <!-- SECTION 3: GENERATOR KARTU -->
+    <div id="tab-generator" class="page-section">
+      <div class="no-print" style="margin-bottom: 1.5rem;">
+        <h2 style="font-size: 1.3rem; font-weight: 800;">🪪 Cetak Kartu Anggota (KTA) & QR</h2>
+        <p style="font-size: 0.85rem; color: var(--text-muted);">Generate tanda tangan digital otomatis, anti-duplikat, tahan 3 tahun.</p>
+      </div>
+
+      <div class="no-print" style="display: grid; grid-template-columns: 1fr 1fr; gap: 2rem; align-items: start;">
+        <div class="card">
+          <h3 style="font-size: 1.1rem; margin-bottom: 1rem;">Data Siswa</h3>
+          <div style="display: flex; flex-direction: column; gap: 0.75rem;">
+            <div>
+              <label style="font-size: 0.75rem; font-weight: 600;">ID Anggota</label>
+              <input type="text" id="genId" value="PIKR-2026-001" style="width: 100%; padding: 0.5rem; border: 1px solid var(--border); border-radius: 6px; text-transform: uppercase;">
+            </div>
+            <div>
+              <label style="font-size: 0.75rem; font-weight: 600;">Nama Lengkap</label>
+              <input type="text" id="genNama" value="Muhammad Haikal" style="width: 100%; padding: 0.5rem; border: 1px solid var(--border); border-radius: 6px;">
+            </div>
+            <div>
+              <label style="font-size: 0.75rem; font-weight: 600;">Kelas</label>
+              <input type="text" id="genKelas" value="XI IPA 1" style="width: 100%; padding: 0.5rem; border: 1px solid var(--border); border-radius: 6px;">
+            </div>
+            <div>
+              <label style="font-size: 0.75rem; font-weight: 600;">Jabatan</label>
+              <input type="text" id="genRole" value="Ketua / Pengurus" style="width: 100%; padding: 0.5rem; border: 1px solid var(--border); border-radius: 6px;">
+            </div>
+            <button class="btn btn-primary" onclick="renderKTA()">⚡ Perbarui Kartu</button>
+          </div>
+        </div>
+
+        <div style="display: flex; flex-direction: column; align-items: center; gap: 1rem;">
+          <div id="ktaPreview" class="kta-card">
+            <div style="text-align: center;">
+              <img src="https://raw.githubusercontent.com/AnakTentara/Absensi_PIK-R-MANSEKU/main/logo/logo_pik-r.png"
+                   onerror="this.style.display='none'"
+                   alt="Logo"
+                   style="width: 46px; height: 46px; object-fit: contain; margin-bottom: 0.2rem; filter: drop-shadow(0 2px 4px rgba(0,0,0,0.3));">
+              <h3 style="letter-spacing: 0.05em; font-size: 1.1rem;">PIK-R MANSEKU</h3>
+              <p style="font-size: 0.72rem; opacity: 0.85;">MAN 1 Muara Enim • Kartu Anggota</p>
+            </div>
+            <div class="kta-box">
+              <div id="ktaQrBox"></div>
+              <span style="font-size: 0.65rem; color: #64748b; font-weight: bold; margin-top: 0.3rem;">IDENTITAS / PRESENSI</span>
+            </div>
+            <div style="text-align: center;">
+              <div id="cardNama" style="font-size: 1.1rem; font-weight: bold;">Muhammad Haikal</div>
+              <div id="cardId" style="font-family: monospace; font-size: 0.8rem; background: rgba(255,255,255,0.2); padding: 0.2rem 0.5rem; border-radius: 4px; display: inline-block; margin: 0.3rem 0;">PIKR-2026-001</div>
+              <div id="cardRole" style="font-size: 0.75rem; opacity: 0.9;">XI IPA 1 • Pengurus</div>
+            </div>
+          </div>
+          <button class="btn btn-secondary" onclick="window.print()">🖨️ Cetak Kartu Ini</button>
+        </div>
+      </div>
+    </div>
+
+  </main>
+
+  <div class="toast-box" id="toastContainer"></div>
+
+  <script>
+    const SECRET_KEY = "sistem_absensi_PIK-R_2026_programbyhaikal";
+    const SCRIPT_URL = "<?= scriptUrl ?>";
+    let html5QrCode = null;
+    let isScanning = false;
+    let cameras = [];
+    let curCamIdx = 0;
+    let recentLogs = [];
+    let dashboardRecords = [];
+
+    // Tab Switcher
+    function switchTab(tabId) {
+      document.querySelectorAll('.page-section').forEach(el => el.classList.remove('active'));
+      document.querySelectorAll('.tab-btn').forEach(btn => btn.classList.remove('active'));
+      document.getElementById(tabId).classList.add('active');
+      event.target.classList.add('active');
+      if (tabId === 'tab-dashboard') loadDashboardData();
+    }
+
+    // Audio Synthesizer (Zero External MP3 needed)
+    const AudioEngine = {
+      ctx: null,
+      init() { if (!this.ctx && (window.AudioContext || window.webkitAudioContext)) this.ctx = new (window.AudioContext || window.webkitAudioContext)(); },
+      beepSuccess() {
+        this.init(); if (!this.ctx) return;
+        const o1 = this.ctx.createOscillator(), o2 = this.ctx.createOscillator(), g = this.ctx.createGain();
+        o1.type = "sine"; o2.type = "sine";
+        o1.frequency.setValueAtTime(587, this.ctx.currentTime);
+        o2.frequency.setValueAtTime(880, this.ctx.currentTime + 0.08);
+        g.gain.setValueAtTime(0.2, this.ctx.currentTime);
+        g.gain.exponentialRampToValueAtTime(0.001, this.ctx.currentTime + 0.35);
+        o1.connect(g); o2.connect(g); g.connect(this.ctx.destination);
+        o1.start(); o1.stop(this.ctx.currentTime + 0.08);
+        o2.start(this.ctx.currentTime + 0.08); o2.stop(this.ctx.currentTime + 0.35);
+      },
+      buzzError() {
+        this.init(); if (!this.ctx) return;
+        const o = this.ctx.createOscillator(), g = this.ctx.createGain();
+        o.type = "sawtooth"; o.frequency.setValueAtTime(160, this.ctx.currentTime);
+        g.gain.setValueAtTime(0.2, this.ctx.currentTime);
+        g.gain.exponentialRampToValueAtTime(0.001, this.ctx.currentTime + 0.3);
+        o.connect(g); g.connect(this.ctx.destination);
+        o.start(); o.stop(this.ctx.currentTime + 0.3);
+      }
+    };
+
+    // HMAC Generator
+    async function getHmac(id) {
+      const cleanId = String(id).trim().toUpperCase();
+      const enc = new TextEncoder();
+      const key = await crypto.subtle.importKey("raw", enc.encode(SECRET_KEY), { name: "HMAC", hash: "SHA-256" }, false, ["sign"]);
+      const sig = await crypto.subtle.sign("HMAC", key, enc.encode(cleanId));
+      return Array.from(new Uint8Array(sig)).map(b => b.toString(16).padStart(2, "0")).join("").substring(0, 10).toUpperCase();
+    }
+
+    // Scanner
+    async function startScanner() {
+      try {
+        html5QrCode = new Html5Qrcode("reader");
+        cameras = await Html5Qrcode.getCameras();
+        if (!cameras || cameras.length === 0) return toast("Tidak ada kamera", "err");
+        
+        let selCam = cameras[0].id;
+        for (let c of cameras) {
+          if (c.label.toLowerCase().includes("back") || c.label.toLowerCase().includes("belakang") || c.label.toLowerCase().includes("environment")) {
+            selCam = c.id; break;
+          }
+        }
+        await html5QrCode.start(selCam, { fps: 15, qrbox: { width: 220, height: 220 } }, onScanned, () => {});
+        isScanning = true;
+        document.getElementById("btnStart").style.display = "none";
+        document.getElementById("btnStop").style.display = "inline-flex";
+        if (cameras.length > 1) document.getElementById("btnSwitchCam").style.display = "inline-flex";
+        document.getElementById("laserLine").style.display = "block";
+        document.getElementById("scanStatusBadge").textContent = "Kamera Aktif";
+        document.getElementById("scanStatusBadge").className = "badge badge-success";
+      } catch (e) {
+        toast("Izin kamera ditolak", "err");
+      }
+    }
+
+    async function stopScanner() {
+      if (html5QrCode && isScanning) {
+        await html5QrCode.stop();
+        html5QrCode.clear();
+        isScanning = false;
+        document.getElementById("btnStart").style.display = "inline-flex";
+        document.getElementById("btnStop").style.display = "none";
+        document.getElementById("btnSwitchCam").style.display = "none";
+        document.getElementById("laserLine").style.display = "none";
+        document.getElementById("scanStatusBadge").textContent = "Nonaktif";
+        document.getElementById("scanStatusBadge").className = "badge badge-info";
+      }
+    }
+
+    async function switchCamera() {
+      if (cameras.length <= 1) return;
+      await stopScanner();
+      curCamIdx = (curCamIdx + 1) % cameras.length;
+      await startScanner();
+    }
+
+    let lastScan = "", lastTime = 0;
+    async function onScanned(text) {
+      const now = Date.now();
+      if (text === lastScan && now - lastTime < 2500) return;
+      lastScan = text; lastTime = now;
+
+      let id = null, sig = null;
+      try {
+        if (text.includes("?")) {
+          const u = new URL(text);
+          sig = u.searchParams.get("sig");
+          if (u.searchParams.has("id")) id = u.searchParams.get("id");
+          else {
+            const seg = u.pathname.split("/").filter(Boolean);
+            if (seg.length >= 2) id = seg[1];
+          }
+        } else if (text.includes("#")) {
+          const parts = text.split("#"); id = parts[0]; sig = parts[1];
+        }
+      } catch(e) {}
+
+      if (!id || !sig) {
+        AudioEngine.buzzError();
+        return toast("Format QR tidak sah!", "err");
+      }
+
+      // Validasi HMAC
+      const expectedSig = await getHmac(id);
+      if (expectedSig !== sig.toUpperCase()) {
+        AudioEngine.buzzError();
+        return toast("Signature QR PALSU!", "err");
+      }
+
+      AudioEngine.beepSuccess();
+      if (navigator.vibrate) navigator.vibrate([60]);
+
+      // Kirim absen langsung ke Apps Script via google.script.run
+      const petugas = document.getElementById("petugasName").value || "Kakak Senior";
+      const sesi = document.getElementById("sesiName").value || "Pertemuan Rutin";
+
+      google.script.run
+        .withSuccessHandler(res => {
+          const card = document.getElementById("scanResultCard");
+          card.style.display = "block";
+          document.getElementById("resNama").textContent = res.data ? res.data.nama : id;
+          document.getElementById("resId").textContent = id;
+          document.getElementById("resKelas").textContent = res.data ? res.data.kelas : "-";
+          document.getElementById("resMsg").textContent = res.message || "Presensi berhasil dicatat!";
+          
+          if (res.status === "already_recorded") {
+            toast("Sudah absen sebelumnya!", "warn");
+            document.getElementById("resBadge").className = "badge badge-warning";
+            document.getElementById("resBadge").textContent = "Sudah Absen";
+          } else {
+            toast("Absensi Berhasil: " + (res.data ? res.data.nama : id), "success");
+            document.getElementById("resBadge").className = "badge badge-success";
+            document.getElementById("resBadge").textContent = "Hadir ✓";
+            addLog(res.data ? res.data.nama : id, id, res.data ? res.data.jam : "Barusan");
+          }
+        })
+        .withFailureHandler(err => {
+          AudioEngine.buzzError();
+          toast("Gagal mencatat: " + err, "err");
+        })
+        .handleRecordAttendance({ id, sig, petugas, sesi, statusKehadiran: "Hadir" });
+    }
+
+    function addLog(nama, id, jam) {
+      recentLogs.unshift({ nama, id, jam });
+      document.getElementById("todayCountBadge").textContent = recentLogs.length + " Hadir";
+      const box = document.getElementById("logsContainer");
+      box.innerHTML = recentLogs.map(l => `
+        <div style="display: flex; justify-content: space-between; padding: 0.6rem 0.8rem; background: var(--surface-alt); border-radius: 6px; border: 1px solid var(--border);">
+          <div><strong>${l.nama}</strong><br><small style="color: var(--text-muted);">${l.id}</small></div>
+          <div style="text-align: right;"><span class="badge badge-success">Hadir</span><br><small style="color: var(--text-muted);">${l.jam}</small></div>
+        </div>
+      `).join("");
+    }
+
+    // Dashboard
+    function loadDashboardData() {
+      google.script.run
+        .withSuccessHandler(res => {
+          dashboardRecords = res.records || [];
+          document.getElementById("statHadir").textContent = dashboardRecords.filter(r => r.status.toLowerCase().includes("hadir")).length;
+          document.getElementById("statIzin").textContent = dashboardRecords.filter(r => r.status.toLowerCase().includes("izin") || r.status.toLowerCase().includes("sakit")).length;
+          document.getElementById("statTotal").textContent = Math.max(dashboardRecords.length, 30);
+          document.getElementById("statBelum").textContent = Math.max(0, 30 - dashboardRecords.length);
+
+          const tbody = document.getElementById("dashTableBody");
+          if (dashboardRecords.length === 0) {
+            tbody.innerHTML = `<tr><td colspan="7" style="text-align:center; padding:2rem;">Belum ada catatan presensi.</td></tr>`;
+            return;
+          }
+          tbody.innerHTML = dashboardRecords.map(r => `
+            <tr>
+              <td><strong>${r.jam}</strong><br><small style="color:var(--text-muted);">${r.tanggal}</small></td>
+              <td><code>${r.idAnggota}</code></td>
+              <td><strong>${r.nama}</strong></td>
+              <td>${r.kelas}</td>
+              <td><span class="badge badge-success">${r.status}</span></td>
+              <td>${r.sesi}</td>
+              <td><small>${r.petugas}</small></td>
+            </tr>
+          `).join("");
+        })
+        .handleGetAttendance();
+    }
+
+    function downloadExcel() {
+      if (dashboardRecords.length === 0) return toast("Belum ada data untuk diunduh", "warn");
+      const data = dashboardRecords.map((r, i) => ({
+        "No": i + 1, "Tanggal": r.tanggal, "Jam": r.jam, "ID Anggota": r.idAnggota,
+        "Nama": r.nama, "Kelas": r.kelas, "Status": r.status, "Sesi": r.sesi, "Petugas": r.petugas
+      }));
+      const ws = XLSX.utils.json_to_sheet(data);
+      const wb = XLSX.utils.book_new();
+      XLSX.utils.book_append_sheet(wb, ws, "Presensi");
+      XLSX.writeFile(wb, "Presensi_PIKR_MANSEKU.xlsx");
+      toast("File Excel berhasil diunduh!", "success");
+    }
+
+    // Generator KTA
+    async function renderKTA() {
+      const id = document.getElementById("genId").value.trim().toUpperCase();
+      const nama = document.getElementById("genNama").value.trim();
+      const kelas = document.getElementById("genKelas").value.trim();
+      const role = document.getElementById("genRole").value.trim();
+      if (!id) return;
+
+      const sig = await getHmac(id);
+      // Gunakan subdomain Cloudflare resmi agar kartu fisik bersih & tahan bertahun-tahun
+      const baseUrl = "https://absensi.pikr-manseku.my.id";
+      const url = baseUrl + "?id=" + id + "&sig=" + sig;
+
+      document.getElementById("cardNama").textContent = nama || "Nama Anggota";
+      document.getElementById("cardId").textContent = id;
+      document.getElementById("cardRole").textContent = `${kelas} • ${role}`;
+
+      const qrBox = document.getElementById("ktaQrBox");
+      qrBox.innerHTML = "";
+      new QRCode(qrBox, { text: url, width: 130, height: 130 });
+    }
+
+    function toast(msg, type = "info") {
+      const c = document.getElementById("toastContainer");
+      const t = document.createElement("div");
+      t.className = `toast ${type === 'err' ? 'err' : type === 'warn' ? 'warn' : ''}`;
+      t.textContent = msg;
+      c.appendChild(t);
+      setTimeout(() => t.remove(), 3500);
+    }
+
+    window.addEventListener("DOMContentLoaded", () => {
+      renderKTA();
+    });
+  </script>
+</body>
+</html>
